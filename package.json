@@ -1,0 +1,31 @@
+{
+  "name": "gh-issues-mcp",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc -p .",
+    "start": "node dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joachimwedin/gh-issues-mcp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/joachimwedin/gh-issues-mcp/issues"
+  },
+  "homepage": "https://github.com/joachimwedin/gh-issues-mcp#readme",
+  "description": "Standalone MCP server exposing a fixed set of GitHub Issues tools, scoped to a single repo.",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

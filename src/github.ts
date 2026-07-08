@@ -147,10 +147,11 @@ export async function commentIssue(
   number: number,
   body: string,
 ): Promise<GitHubComment> {
-  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${number}/comments`, {
-    method: "POST",
-    body: { body },
-  })) as GitHubComment;
+  const raw = (await githubRequest(
+    config,
+    `/repos/${config.owner}/${config.repo}/issues/${number}/comments`,
+    { method: "POST", body: { body } },
+  )) as GitHubComment;
 
   return { body: raw.body };
 }

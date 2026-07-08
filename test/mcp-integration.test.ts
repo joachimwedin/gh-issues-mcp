@@ -67,7 +67,12 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     await client.connect(transport);
 
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(["list_issues", "view_issue"]);
+    expect(tools.tools.map((t) => t.name).sort()).toEqual([
+      "close_issue",
+      "comment_issue",
+      "list_issues",
+      "view_issue",
+    ]);
 
     const result = await client.callTool({ name: "list_issues", arguments: {} });
     expect(result.isError).toBeFalsy();

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { listIssues, viewIssue, GitHubApiError } from "../src/github.js";
+import { listIssues, viewIssue, commentIssue, closeIssue, GitHubApiError } from "../src/github.js";
 
 const config = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -144,5 +144,71 @@ describe("viewIssue", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(viewIssue(config, 999)).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
+  });
+});
+
+describe("commentIssue", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts a comment to the given issue and returns it", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ body: "a new comment" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const comment = await commentIssue(config, 3, "a new comment");
+
+    expect(comment).toEqual({ body: "a new comment" });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3/comments");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ body: "a new comment" });
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-token");
+  });
+
+  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(commentIssue(config, 999, "hi")).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
+  });
+});
+
+describe("closeIssue", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts the comment then closes the issue, returning the updated issue", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith("/issues/3/comments")) {
+        return Promise.resolve(jsonResponse({ body: "closing this out" }));
+      }
+      if (url.endsWith("/issues/3") && init?.method === "PATCH") {
+        return Promise.resolve(
+          jsonResponse({ number: 3, title: "an issue", state: "closed", body: "body", labels: [{ name: "bug" }] }),
+        );
+      }
+      throw new Error(`unexpected call: ${url} ${init?.method}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const issue = await closeIssue(config, 3, "closing this out");
+
+    expect(issue).toEqual({ number: 3, title: "an issue", state: "closed", body: "body", labels: ["bug"] });
+
+    const commentCall = fetchMock.mock.calls.find(([url]) => (url as string).endsWith("/comments"));
+    expect(JSON.parse((commentCall![1] as RequestInit).body as string)).toEqual({ body: "closing this out" });
+
+    const patchCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PATCH");
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({ state: "closed" });
+  });
+
+  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(closeIssue(config, 999, "closing")).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
   });
 });

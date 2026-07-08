@@ -43,13 +43,25 @@ export class GitHubApiError extends Error {
   }
 }
 
-async function githubRequest(config: GitHubClientConfig, path: string): Promise<unknown> {
+interface GitHubRequestOptions {
+  method?: string;
+  body?: unknown;
+}
+
+async function githubRequest(
+  config: GitHubClientConfig,
+  path: string,
+  options?: GitHubRequestOptions,
+): Promise<unknown> {
   const res = await fetch(`${API_BASE}${path}`, {
+    method: options?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${config.token}`,
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
+      ...(options?.body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
+    body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
   if (!res.ok) {
@@ -128,4 +140,36 @@ export async function viewIssue(config: GitHubClientConfig, number: number): Pro
     ...normalizeIssue(issue),
     comments: comments.map((comment) => ({ body: comment.body })),
   };
+}
+
+export async function commentIssue(
+  config: GitHubClientConfig,
+  number: number,
+  body: string,
+): Promise<GitHubComment> {
+  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${number}/comments`, {
+    method: "POST",
+    body: { body },
+  })) as GitHubComment;
+
+  return { body: raw.body };
+}
+
+/**
+ * Posts the given comment, then closes the issue. Always in this order so a
+ * failure to close still leaves the explanatory comment on the issue.
+ */
+export async function closeIssue(
+  config: GitHubClientConfig,
+  number: number,
+  comment: string,
+): Promise<GitHubIssue> {
+  await commentIssue(config, number, comment);
+
+  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${number}`, {
+    method: "PATCH",
+    body: { state: "closed" },
+  })) as RawIssue;
+
+  return normalizeIssue(raw);
 }

@@ -28,11 +28,12 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     dir = mkdtempSync(join(tmpdir(), "gh-issues-mcp-e2e-test-"));
     const auditLogPath = join(dir, "audit.log");
 
-    const mcpServer = createMcpServer({
-      github: { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" },
-      auditLogPath,
-    });
-    server = createServer({ tokenLoaded: true }, mcpServer);
+    server = createServer({ tokenLoaded: true }, () =>
+      createMcpServer({
+        github: { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" },
+        auditLogPath,
+      }),
+    );
 
     const port = await new Promise<number>((resolve) => {
       server.listen(0, "127.0.0.1", () => {
@@ -107,6 +108,35 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     expect(content.text).toContain("Not Found");
 
     await client.close();
+  });
+
+  it("accepts a second client connecting after a first client has already connected", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string | URL, init?: RequestInit) => {
+        const href = url.toString();
+        if (href.startsWith("https://api.github.com")) {
+          return Promise.resolve(
+            jsonResponse([{ number: 3, title: "an issue", state: "open", body: "body", labels: [{ name: "bug" }] }]),
+          );
+        }
+        return realFetch(href, init);
+      }),
+    );
+
+    const { url } = await start();
+
+    const firstClient = new Client({ name: "first-client", version: "1.0.0" });
+    await firstClient.connect(new StreamableHTTPClientTransport(url));
+    const firstResult = await firstClient.callTool({ name: "list_issues", arguments: {} });
+    expect(firstResult.isError).toBeFalsy();
+    await firstClient.close();
+
+    const secondClient = new Client({ name: "second-client", version: "1.0.0" });
+    await secondClient.connect(new StreamableHTTPClientTransport(url));
+    const secondResult = await secondClient.callTool({ name: "list_issues", arguments: {} });
+    expect(secondResult.isError).toBeFalsy();
+    await secondClient.close();
   });
 
   it("still serves GET /health correctly alongside the MCP endpoint", async () => {

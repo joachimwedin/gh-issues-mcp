@@ -14,12 +14,12 @@ function main() {
   const config = loadConfig(CONFIG_PATH);
   const token = loadToken(KEYCHAIN_SERVICE);
 
-  const mcpServer = createMcpServer({
-    github: { owner: config.owner, repo: config.repo, token },
-    auditLogPath: AUDIT_LOG_PATH,
-  });
-
-  const server = createServer({ tokenLoaded: true }, mcpServer);
+  const server = createServer({ tokenLoaded: true }, () =>
+    createMcpServer({
+      github: { owner: config.owner, repo: config.repo, token },
+      auditLogPath: AUDIT_LOG_PATH,
+    }),
+  );
   server.listen(config.port, "127.0.0.1", () => {
     console.log(
       `gh-issues-mcp listening on http://127.0.0.1:${config.port} (repo: ${config.owner}/${config.repo})`,

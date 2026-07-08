@@ -1,9 +1,18 @@
 import { readFileSync } from "node:fs";
 
+export const DEFAULT_LABEL_VOCABULARY = [
+  "needs-triage",
+  "needs-info",
+  "ready-for-agent",
+  "ready-for-human",
+  "wontfix",
+];
+
 export interface ServerConfig {
   owner: string;
   repo: string;
   port: number;
+  labelVocabulary: string[];
 }
 
 /**
@@ -30,7 +39,7 @@ export function loadConfig(path: string): ServerConfig {
     throw new Error(`Config file at "${path}" must contain a JSON object.`);
   }
 
-  const { owner, repo, port } = parsed as Record<string, unknown>;
+  const { owner, repo, port, labelVocabulary } = parsed as Record<string, unknown>;
 
   if (typeof owner !== "string" || owner.length === 0) {
     throw new Error(`Config file at "${path}" is missing a valid "owner" string.`);
@@ -42,5 +51,18 @@ export function loadConfig(path: string): ServerConfig {
     throw new Error(`Config file at "${path}" is missing a valid integer "port".`);
   }
 
-  return { owner, repo, port };
+  let vocabulary = DEFAULT_LABEL_VOCABULARY;
+  if (labelVocabulary !== undefined) {
+    if (
+      !Array.isArray(labelVocabulary) ||
+      !labelVocabulary.every((label) => typeof label === "string" && label.length > 0)
+    ) {
+      throw new Error(
+        `Config file at "${path}" has an invalid "labelVocabulary"; expected an array of non-empty strings.`,
+      );
+    }
+    vocabulary = labelVocabulary as string[];
+  }
+
+  return { owner, repo, port, labelVocabulary: vocabulary };
 }

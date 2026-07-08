@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { listIssues, viewIssue, commentIssue, closeIssue, GitHubApiError } from "../src/github.js";
+import { listIssues, viewIssue, commentIssue, closeIssue, editLabels, GitHubApiError } from "../src/github.js";
 
 const config = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -210,5 +210,75 @@ describe("closeIssue", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(closeIssue(config, 999, "closing")).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
+  });
+});
+
+describe("editLabels", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts the given labels to add and returns the resulting label set", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse([{ name: "ready-for-agent" }, { name: "needs-info" }]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const labels = await editLabels(config, 3, ["needs-info"], []);
+
+    expect(labels).toEqual(["ready-for-agent", "needs-info"]);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3/labels");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ labels: ["needs-info"] });
+  });
+
+  it("deletes each label to remove, one call per label, and returns the resulting label set", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/labels/needs-triage")) return Promise.resolve(jsonResponse([{ name: "wontfix" }]));
+      if (url.endsWith("/labels/needs-info")) return Promise.resolve(jsonResponse([]));
+      throw new Error(`unexpected call: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const labels = await editLabels(config, 3, [], ["needs-triage", "needs-info"]);
+
+    expect(labels).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [firstUrl, firstInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(firstUrl).toBe(
+      "https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3/labels/needs-triage",
+    );
+    expect(firstInit.method).toBe("DELETE");
+  });
+
+  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(editLabels(config, 999, ["needs-info"], [])).rejects.toMatchObject(
+      new GitHubApiError(404, "Not Found"),
+    );
+  });
+
+  it("fetches the issue's current labels when neither add nor remove is given", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        number: 3,
+        title: "an issue",
+        state: "open",
+        body: null,
+        labels: [{ name: "bug" }],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const labels = await editLabels(config, 3, [], []);
+
+    expect(labels).toEqual(["bug"]);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit | undefined];
+    expect(url).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3");
+    expect(init?.method ?? "GET").toBe("GET");
   });
 });

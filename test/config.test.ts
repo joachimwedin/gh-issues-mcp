@@ -18,7 +18,7 @@ describe("loadConfig", () => {
     return path;
   }
 
-  it("loads owner, repo, and port from a valid config file", () => {
+  it("loads owner, repo, and port from a valid config file, defaulting the label vocabulary", () => {
     const path = writeConfig(
       JSON.stringify({ owner: "joachimwedin", repo: "gh-issues-mcp", port: 4319 }),
     );
@@ -27,6 +27,7 @@ describe("loadConfig", () => {
       owner: "joachimwedin",
       repo: "gh-issues-mcp",
       port: 4319,
+      labelVocabulary: ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"],
     });
   });
 
@@ -54,5 +55,26 @@ describe("loadConfig", () => {
     );
 
     expect(() => loadConfig(path)).toThrow(/port/i);
+  });
+
+  it("loads a custom label vocabulary when provided", () => {
+    const path = writeConfig(
+      JSON.stringify({
+        owner: "joachimwedin",
+        repo: "gh-issues-mcp",
+        port: 4319,
+        labelVocabulary: ["bug", "enhancement"],
+      }),
+    );
+
+    expect(loadConfig(path).labelVocabulary).toEqual(["bug", "enhancement"]);
+  });
+
+  it("throws a clear error when labelVocabulary is not an array of non-empty strings", () => {
+    const path = writeConfig(
+      JSON.stringify({ owner: "joachimwedin", repo: "gh-issues-mcp", port: 4319, labelVocabulary: "bug" }),
+    );
+
+    expect(() => loadConfig(path)).toThrow(/labelVocabulary/i);
   });
 });

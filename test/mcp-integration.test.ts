@@ -32,6 +32,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       createMcpServer({
         github: { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" },
         auditLogPath,
+        labelVocabulary: ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"],
       }),
     );
 
@@ -70,6 +71,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     expect(tools.tools.map((t) => t.name).sort()).toEqual([
       "close_issue",
       "comment_issue",
+      "edit_labels",
       "list_issues",
       "view_issue",
     ]);

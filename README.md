@@ -66,6 +66,23 @@ config file, not from hardcoded values or per-call arguments:
 By default this file is expected at `~/.config/gh-issues-mcp/config.json`.
 Override the path with `GH_ISSUES_MCP_CONFIG_PATH`.
 
+### Configuring the label vocabulary
+
+`edit_labels` only allows label values from a fixed vocabulary — anything
+else is rejected locally, before any GitHub API call is made. It defaults to
+`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`,
+`wontfix`. Override it per-project with an optional `labelVocabulary` array
+in the same config file:
+
+```json
+{
+  "owner": "your-org-or-user",
+  "repo": "your-repo",
+  "port": 4319,
+  "labelVocabulary": ["bug", "enhancement", "wontfix"]
+}
+```
+
 ## Running the server
 
 ```sh
@@ -119,8 +136,15 @@ project's committed config. For example, in Claude Code's user config:
   the triage surface.
 - `view_issue(number)` — returns an issue's body, labels, and full comment
   history.
+- `comment_issue(number, body)` — posts a comment to an issue.
+- `close_issue(number, comment)` — posts a comment and closes the issue.
+  `comment` is required, so an issue can never be closed without an
+  explanation.
+- `edit_labels(number, add?, remove?)` — adds and/or removes labels on an
+  issue. Only labels from the configured vocabulary are allowed; anything
+  else is rejected locally, before any GitHub API call is made.
 
-More tools land in later slices (comment/close, label edits, sub-issues).
+More tools land in later slices (sub-issues).
 
 ## Audit log
 

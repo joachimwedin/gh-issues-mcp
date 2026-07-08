@@ -18,6 +18,7 @@ function main() {
     createMcpServer({
       github: { owner: config.owner, repo: config.repo, token },
       auditLogPath: AUDIT_LOG_PATH,
+      labelVocabulary: config.labelVocabulary,
     }),
   );
   server.listen(config.port, "127.0.0.1", () => {

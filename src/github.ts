@@ -174,3 +174,48 @@ export async function closeIssue(
 
   return normalizeIssue(raw);
 }
+
+interface RawLabelObject {
+  name: string;
+}
+
+/**
+ * Adds and/or removes labels on an issue. Adding is one API call for the
+ * whole batch; removing is one call per label (GitHub's API has no bulk
+ * removal endpoint). Returns the resulting label set from the last write
+ * performed.
+ */
+export async function editLabels(
+  config: GitHubClientConfig,
+  number: number,
+  add: string[],
+  remove: string[],
+): Promise<string[]> {
+  let labels: RawLabelObject[] | undefined;
+
+  if (add.length > 0) {
+    labels = (await githubRequest(
+      config,
+      `/repos/${config.owner}/${config.repo}/issues/${number}/labels`,
+      { method: "POST", body: { labels: add } },
+    )) as RawLabelObject[];
+  }
+
+  for (const name of remove) {
+    labels = (await githubRequest(
+      config,
+      `/repos/${config.owner}/${config.repo}/issues/${number}/labels/${encodeURIComponent(name)}`,
+      { method: "DELETE" },
+    )) as RawLabelObject[];
+  }
+
+  if (labels === undefined) {
+    const raw = (await githubRequest(
+      config,
+      `/repos/${config.owner}/${config.repo}/issues/${number}`,
+    )) as RawIssue;
+    return normalizeIssue(raw).labels;
+  }
+
+  return labels.map((label) => label.name);
+}

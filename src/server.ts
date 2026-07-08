@@ -22,10 +22,12 @@ export function createServer(status: ServerStatus, mcpServer?: McpServer): Serve
   // Session (stateful) mode: a single transport instance is reused across every
   // request in a session. Stateless mode requires a fresh transport per request,
   // which doesn't fit a long-running server meant to stay connected to one client.
-  const transport = mcpServer
-    ? new StreamableHTTPServerTransport({ sessionIdGenerator: randomUUID })
-    : undefined;
-  const ready = mcpServer && transport ? mcpServer.connect(transport) : undefined;
+  let transport: StreamableHTTPServerTransport | undefined;
+  let ready: Promise<void> | undefined;
+  if (mcpServer) {
+    transport = new StreamableHTTPServerTransport({ sessionIdGenerator: randomUUID });
+    ready = mcpServer.connect(transport);
+  }
 
   return createHttpServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {

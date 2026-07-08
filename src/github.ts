@@ -121,7 +121,7 @@ export async function viewIssue(config: GitHubClientConfig, number: number): Pro
     githubRequest(
       config,
       `/repos/${config.owner}/${config.repo}/issues/${number}/comments`,
-    ) as Promise<{ body: string }[]>,
+    ) as Promise<GitHubComment[]>,
   ]);
 
   return {

@@ -1,12 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerListIssuesTool } from "./tools/list-issues.js";
 import { registerViewIssueTool } from "./tools/view-issue.js";
-import type { GitHubClientConfig } from "./github.js";
+import type { McpToolContext } from "./tools/context.js";
 
-export interface McpToolContext {
-  github: GitHubClientConfig;
-  auditLogPath: string;
-}
+export type { McpToolContext };
 
 /**
  * Assembles the fixed, narrow tool surface this server exposes. Each tool

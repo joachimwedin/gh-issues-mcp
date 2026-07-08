@@ -6,8 +6,9 @@ outside the process tree of any agent session, and holds a GitHub personal
 access token internally so agents never see or hold the credential
 themselves.
 
-This scaffold covers startup, token loading, and a health check. No MCP
-tools are wired up yet.
+The server exposes GET /health for liveness checks, and an MCP endpoint at
+POST/GET/DELETE /mcp (Streamable HTTP transport) with the tools listed
+below.
 
 ## Required GitHub token scope
 
@@ -105,11 +106,28 @@ project's committed config. For example, in Claude Code's user config:
 {
   "mcpServers": {
     "gh-issues-mcp": {
-      "url": "http://127.0.0.1:4319"
+      "url": "http://127.0.0.1:4319/mcp"
     }
   }
 }
 ```
 
-(No MCP tools are exposed by this scaffold yet — this section documents
-the intended registration shape for when tools land in later slices.)
+## Tools
+
+- `list_issues(state?, labels?)` — lists issues in the configured repo.
+  Pull requests are excluded, since this server treats issues, not PRs, as
+  the triage surface.
+- `view_issue(number)` — returns an issue's body, labels, and full comment
+  history.
+
+More tools land in later slices (comment/close, label edits, sub-issues).
+
+## Audit log
+
+Every tool call appends one JSON-lines entry (timestamp, tool name,
+arguments, success/failure, GitHub response status) to a local audit log,
+independent of GitHub's own issue-timeline history.
+
+By default this file is written to
+`~/.local/state/gh-issues-mcp/audit.log`. Override the path with
+`GH_ISSUES_MCP_AUDIT_LOG_PATH`.

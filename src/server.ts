@@ -1,4 +1,7 @@
 import { createServer as createHttpServer, type Server } from "node:http";
+import { randomUUID } from "node:crypto";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 export interface ServerStatus {
   /**
@@ -9,11 +12,38 @@ export interface ServerStatus {
   tokenLoaded: boolean;
 }
 
-export function createServer(status: ServerStatus): Server {
+/**
+ * Creates the server's HTTP surface: GET /health always, plus POST/GET/DELETE
+ * /mcp when an McpServer is supplied. `mcpServer` is kept separate from
+ * `status` so the health endpoint's inputs stay limited to the boolean above,
+ * regardless of what else the server exposes.
+ */
+export function createServer(status: ServerStatus, mcpServer?: McpServer): Server {
+  // Session (stateful) mode: a single transport instance is reused across every
+  // request in a session. Stateless mode requires a fresh transport per request,
+  // which doesn't fit a long-running server meant to stay connected to one client.
+  const transport = mcpServer
+    ? new StreamableHTTPServerTransport({ sessionIdGenerator: randomUUID })
+    : undefined;
+  const ready = mcpServer && transport ? mcpServer.connect(transport) : undefined;
+
   return createHttpServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "ok", tokenLoaded: status.tokenLoaded }));
+      return;
+    }
+
+    if (req.url === "/mcp" && transport && ready) {
+      ready
+        .then(() => transport.handleRequest(req, res))
+        .catch((err) => {
+          console.error("Failed to handle MCP request:", err);
+          if (!res.headersSent) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "internal server error" }));
+          }
+        });
       return;
     }
 

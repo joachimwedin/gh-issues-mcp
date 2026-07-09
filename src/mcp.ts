@@ -7,6 +7,7 @@ import { editLabelsTool } from "./tools/edit-labels.js";
 import { createSubIssueTool } from "./tools/create-sub-issue.js";
 import { createIssueTool } from "./tools/create-issue.js";
 import { editIssueTool } from "./tools/edit-issue.js";
+import { listReposTool } from "./tools/list-repos.js";
 import type { McpToolContext } from "./tools/context.js";
 import type { RegisterableTool } from "./tools/define-tool.js";
 
@@ -21,6 +22,7 @@ const tools: RegisterableTool[] = [
   createSubIssueTool,
   createIssueTool,
   editIssueTool,
+  listReposTool,
 ];
 
 /**

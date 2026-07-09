@@ -7,6 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createServer } from "../src/server.js";
 import { createMcpServer } from "../src/mcp.js";
+import { DEFAULT_LABEL_VOCABULARY } from "../src/config.js";
 
 const realFetch = globalThis.fetch;
 
@@ -85,6 +86,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       "edit_issue",
       "edit_labels",
       "list_issues",
+      "list_repos",
       "view_issue",
     ]);
 
@@ -231,6 +233,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       name: "edit_labels",
       arguments: { repo: "joachimwedin/other-repo", number: 9, add: ["wontfix"] },
     });
+    const repos = await client.callTool({ name: "list_repos", arguments: {} });
 
     // Then
     const explicitDefaultContent = (explicitDefault.content as { type: string; text: string }[])[0];
@@ -265,6 +268,12 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       labels: ["wontfix"],
     });
 
+    const reposContent = (repos.content as { type: string; text: string }[])[0];
+    expect(JSON.parse(reposContent.text)).toEqual([
+      { repo: "joachimwedin/gh-issues-mcp", labelVocabulary: DEFAULT_LABEL_VOCABULARY },
+      { repo: "joachimwedin/other-repo", labelVocabulary: DEFAULT_LABEL_VOCABULARY },
+    ]);
+
     await client.close();
 
     const entries = readFileSync(auditLogPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
@@ -274,6 +283,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       "joachimwedin/gh-issues-mcp",
       "joachimwedin/other-repo",
       "joachimwedin/other-repo",
+      "joachimwedin/gh-issues-mcp",
     ]);
   });
 });

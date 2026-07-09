@@ -26,4 +26,6 @@ export interface ResolvedToolContext {
   auditLogPath: string;
   /** The resolved "owner/name" this call targeted. */
   repo: string;
+  /** The full configured repo allowlist, for tools (like list_repos) that operate across repos rather than one. */
+  repos: RepoAllowlistEntry[];
 }

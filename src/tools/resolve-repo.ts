@@ -41,6 +41,7 @@ export function resolveRepo(context: McpToolContext, requestedRepo: string | und
       labelVocabulary: entry.labelVocabulary ?? DEFAULT_LABEL_VOCABULARY,
       auditLogPath: context.auditLogPath,
       repo,
+      repos: context.repos,
     },
   };
 }

@@ -83,4 +83,17 @@ describe("resolveRepo", () => {
     if (!result.ok) throw new Error("expected ok");
     expect(result.context.labelVocabulary).toEqual(["bug", "enhancement"]);
   });
+
+  it("Given a multi-repo allowlist, When resolveRepo is called, Then it exposes the full allowlist on the resolved context", () => {
+    // Given
+    const repos = [{ repo: "joachimwedin/gh-issues-mcp" }, { repo: "joachimwedin/other-repo", labelVocabulary: ["bug"] }];
+    const context = baseContext({ repos });
+
+    // When
+    const result = resolveRepo(context, undefined);
+
+    // Then
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.context.repos).toEqual(repos);
+  });
 });

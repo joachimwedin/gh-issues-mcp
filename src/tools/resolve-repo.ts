@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { DEFAULT_LABEL_VOCABULARY } from "../config.js";
+import { effectiveLabelVocabulary } from "../config.js";
 import type { McpToolContext, ResolvedToolContext } from "./context.js";
 
 export type RepoResolution = { ok: true; context: ResolvedToolContext } | { ok: false; error: CallToolResult };
@@ -38,7 +38,7 @@ export function resolveRepo(context: McpToolContext, requestedRepo: string | und
     ok: true,
     context: {
       github: { owner, repo: name, token: context.token },
-      labelVocabulary: entry.labelVocabulary ?? DEFAULT_LABEL_VOCABULARY,
+      labelVocabulary: effectiveLabelVocabulary(entry),
       auditLogPath: context.auditLogPath,
       repo,
       repos: context.repos,

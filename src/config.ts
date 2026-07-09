@@ -16,6 +16,11 @@ export interface RepoAllowlistEntry {
   labelVocabulary?: string[];
 }
 
+/** A repo's effective label vocabulary: its own override, or the hardcoded default. */
+export function effectiveLabelVocabulary(entry: RepoAllowlistEntry): string[] {
+  return entry.labelVocabulary ?? DEFAULT_LABEL_VOCABULARY;
+}
+
 export interface ServerConfig {
   repos: RepoAllowlistEntry[];
   defaultRepo: string;

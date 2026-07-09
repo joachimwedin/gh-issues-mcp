@@ -1,4 +1,4 @@
-import { DEFAULT_LABEL_VOCABULARY } from "../config.js";
+import { effectiveLabelVocabulary } from "../config.js";
 import { defineTool } from "./define-tool.js";
 
 export type ListReposInput = Record<string, never>;
@@ -12,7 +12,7 @@ export const listReposTool = defineTool<ListReposInput>({
   async call(context) {
     return context.repos.map((entry) => ({
       repo: entry.repo,
-      labelVocabulary: entry.labelVocabulary ?? DEFAULT_LABEL_VOCABULARY,
+      labelVocabulary: effectiveLabelVocabulary(entry),
     }));
   },
 });

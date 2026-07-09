@@ -83,6 +83,7 @@ interface RawLabel {
 }
 
 interface RawIssue {
+  id: number;
   number: number;
   title: string;
   state: string;
@@ -218,4 +219,36 @@ export async function editLabels(
   }
 
   return labels.map((label) => label.name);
+}
+
+/**
+ * Verifies the parent exists, creates a new issue, then links it as a
+ * sub-issue of the parent via GitHub's sub-issues API (which takes the new
+ * issue's internal `id`, not its `number`). The parent-existence check runs
+ * first so a bad parent number fails fast without leaving a created but
+ * unlinked issue behind. If the link call itself still fails after that
+ * check passes (e.g. a transient error), the issue is left created but
+ * unlinked rather than orphaned/deleted — mirroring closeIssue's
+ * comment-before-close ordering, an accepted trade-off, not a bug to
+ * silently swallow.
+ */
+export async function createSubIssue(
+  config: GitHubClientConfig,
+  parentNumber: number,
+  title: string,
+  body: string,
+): Promise<GitHubIssue> {
+  await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${parentNumber}`);
+
+  const created = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues`, {
+    method: "POST",
+    body: { title, body },
+  })) as RawIssue;
+
+  await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${parentNumber}/sub_issues`, {
+    method: "POST",
+    body: { sub_issue_id: created.id },
+  });
+
+  return normalizeIssue(created);
 }

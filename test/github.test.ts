@@ -1,5 +1,13 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { listIssues, viewIssue, commentIssue, closeIssue, editLabels, GitHubApiError } from "../src/github.js";
+import {
+  listIssues,
+  viewIssue,
+  commentIssue,
+  closeIssue,
+  editLabels,
+  createSubIssue,
+  GitHubApiError,
+} from "../src/github.js";
 
 const config = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -280,5 +288,115 @@ describe("editLabels", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit | undefined];
     expect(url).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3");
     expect(init?.method ?? "GET").toBe("GET");
+  });
+});
+
+describe("createSubIssue", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubHappyPath(): ReturnType<typeof vi.fn> {
+    return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith("/issues/3") && (init?.method ?? "GET") === "GET") {
+        return Promise.resolve(jsonResponse({ id: 1, number: 3, title: "parent", state: "open", body: null, labels: [] }));
+      }
+      if (url.endsWith("/issues") && init?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse(
+            { id: 555, number: 10, title: "a sub-issue", state: "open", body: "sub body", labels: [] },
+            201,
+          ),
+        );
+      }
+      if (url.endsWith("/issues/3/sub_issues") && init?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse({ number: 3, title: "parent", state: "open", body: "parent body", labels: [] }, 201),
+        );
+      }
+      throw new Error(`unexpected call: ${url} ${init?.method}`);
+    });
+  }
+
+  it("verifies the parent exists, creates a new issue, links it under the parent, and returns the new issue", async () => {
+    const fetchMock = stubHappyPath();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const issue = await createSubIssue(config, 3, "a sub-issue", "sub body");
+
+    expect(issue).toEqual({ number: 10, title: "a sub-issue", state: "open", body: "sub body", labels: [] });
+
+    const parentCheckCall = fetchMock.mock.calls.find(
+      ([url, init]) => (url as string).endsWith("/issues/3") && ((init as RequestInit | undefined)?.method ?? "GET") === "GET",
+    );
+    expect(parentCheckCall![0]).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3");
+
+    const createCall = fetchMock.mock.calls.find(
+      ([url, init]) => (url as string).endsWith("/issues") && (init as RequestInit)?.method === "POST",
+    );
+    expect(createCall![0]).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues");
+    expect(JSON.parse((createCall![1] as RequestInit).body as string)).toEqual({
+      title: "a sub-issue",
+      body: "sub body",
+    });
+
+    const linkCall = fetchMock.mock.calls.find(([url]) => (url as string).endsWith("/sub_issues"));
+    expect(linkCall![0]).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3/sub_issues");
+    expect(JSON.parse((linkCall![1] as RequestInit).body as string)).toEqual({ sub_issue_id: 555 });
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3",
+      "https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues",
+      "https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3/sub_issues",
+    ]);
+  });
+
+  it("throws a GitHubApiError and creates no issue when the parent doesn't exist", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createSubIssue(config, 999, "title", "body")).rejects.toMatchObject(
+      new GitHubApiError(404, "Not Found"),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/999");
+  });
+
+  it("throws a GitHubApiError with the real status and message when creating the issue fails", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith("/issues/3") && (init?.method ?? "GET") === "GET") {
+        return Promise.resolve(jsonResponse({ id: 1, number: 3, title: "parent", state: "open", body: null, labels: [] }));
+      }
+      if (url.endsWith("/issues") && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ message: "Validation Failed" }, 422));
+      }
+      throw new Error(`unexpected call: ${url} ${init?.method}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createSubIssue(config, 3, "title", "body")).rejects.toMatchObject(
+      new GitHubApiError(422, "Validation Failed"),
+    );
+  });
+
+  it("throws a GitHubApiError with the real status and message when linking to the parent fails", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith("/issues/3") && (init?.method ?? "GET") === "GET") {
+        return Promise.resolve(jsonResponse({ id: 1, number: 3, title: "parent", state: "open", body: null, labels: [] }));
+      }
+      if (url.endsWith("/issues") && init?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse({ id: 555, number: 10, title: "a sub-issue", state: "open", body: "sub body", labels: [] }),
+        );
+      }
+      if (url.endsWith("/sub_issues")) return Promise.resolve(jsonResponse({ message: "Server Error" }, 500));
+      throw new Error(`unexpected call: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createSubIssue(config, 3, "title", "body")).rejects.toMatchObject(
+      new GitHubApiError(500, "Server Error"),
+    );
   });
 });

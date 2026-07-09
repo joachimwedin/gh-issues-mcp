@@ -150,8 +150,8 @@ project's committed config. For example, in Claude Code's user config:
 - `edit_labels(number, add?, remove?)` — adds and/or removes labels on an
   issue. Only labels from the configured vocabulary are allowed; anything
   else is rejected locally, before any GitHub API call is made.
-
-More tools land in later slices (sub-issues).
+- `create_sub_issue(parent_number, title, body)` — creates a new issue and
+  links it as a sub-issue of the given parent via GitHub's sub-issues API.
 
 ## Audit log
 

@@ -4,13 +4,13 @@ import { registerViewIssueTool } from "./tools/view-issue.js";
 import { registerCommentIssueTool } from "./tools/comment-issue.js";
 import { registerCloseIssueTool } from "./tools/close-issue.js";
 import { registerEditLabelsTool } from "./tools/edit-labels.js";
+import { registerCreateSubIssueTool } from "./tools/create-sub-issue.js";
 import type { McpToolContext } from "./tools/context.js";
 
 export type { McpToolContext };
 
 /**
- * Assembles the fixed, narrow tool surface this server exposes. Each tool
- * is registered here, one at a time, as later slices (#6) land.
+ * Assembles the fixed, narrow tool surface this server exposes.
  */
 export function createMcpServer(context: McpToolContext): McpServer {
   const server = new McpServer({ name: "gh-issues-mcp", version: "1.0.0" });
@@ -20,6 +20,7 @@ export function createMcpServer(context: McpToolContext): McpServer {
   registerCommentIssueTool(server, context);
   registerCloseIssueTool(server, context);
   registerEditLabelsTool(server, context);
+  registerCreateSubIssueTool(server, context);
 
   return server;
 }

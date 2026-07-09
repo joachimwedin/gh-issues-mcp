@@ -176,12 +176,15 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     expect(body).toEqual({ status: "ok", tokenLoaded: true });
   });
 
-  it("Given a server configured with two allowlisted repos, When list_issues is called naming each repo and once omitting repo, and view_issue is called against the second repo, Then each call hits the right repo, and the omitted-repo list_issues call falls back to the default", async () => {
+  it("Given a server configured with two allowlisted repos, When list_issues is called naming each repo and once omitting repo, view_issue is called against the second repo, and edit_labels is called against the second repo, Then each call hits the right repo, and the omitted-repo list_issues call falls back to the default", async () => {
     // Given
     const fetchMock = vi.fn().mockImplementation((url: string | URL, init?: RequestInit) => {
       const href = url.toString();
       if (href.includes("/repos/joachimwedin/other-repo/issues/9/comments")) {
         return Promise.resolve(jsonResponse([{ body: "a comment" }]));
+      }
+      if (href.includes("/repos/joachimwedin/other-repo/issues/9/labels")) {
+        return Promise.resolve(jsonResponse([{ name: "wontfix" }]));
       }
       if (href.includes("/repos/joachimwedin/other-repo/issues/9")) {
         return Promise.resolve(
@@ -224,6 +227,10 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       name: "view_issue",
       arguments: { repo: "joachimwedin/other-repo", number: 9 },
     });
+    const editLabelsOther = await client.callTool({
+      name: "edit_labels",
+      arguments: { repo: "joachimwedin/other-repo", number: 9, add: ["wontfix"] },
+    });
 
     // Then
     const explicitDefaultContent = (explicitDefault.content as { type: string; text: string }[])[0];
@@ -252,6 +259,12 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       repo: "joachimwedin/other-repo",
     });
 
+    const editLabelsOtherContent = (editLabelsOther.content as { type: string; text: string }[])[0];
+    expect(JSON.parse(editLabelsOtherContent.text)).toEqual({
+      repo: "joachimwedin/other-repo",
+      labels: ["wontfix"],
+    });
+
     await client.close();
 
     const entries = readFileSync(auditLogPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
@@ -259,6 +272,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       "joachimwedin/gh-issues-mcp",
       "joachimwedin/other-repo",
       "joachimwedin/gh-issues-mcp",
+      "joachimwedin/other-repo",
       "joachimwedin/other-repo",
     ]);
   });

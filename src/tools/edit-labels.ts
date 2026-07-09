@@ -3,12 +3,14 @@ import { editLabels } from "../github.js";
 import { defineTool } from "./define-tool.js";
 
 export interface EditLabelsInput {
+  repo?: string;
   number: number;
   add?: string[];
   remove?: string[];
 }
 
 export const editLabelsInputSchema = {
+  repo: z.string().optional(),
   number: z.number().int(),
   add: z.array(z.string()).optional(),
   remove: z.array(z.string()).optional(),
@@ -20,7 +22,8 @@ function invalidLabels(labels: string[] | undefined, vocabulary: string[]): stri
 
 export const editLabelsTool = defineTool<EditLabelsInput>({
   name: "edit_labels",
-  description: "Add and/or remove labels on the given issue, restricted to the configured label vocabulary.",
+  description:
+    "Add and/or remove labels on the given issue, restricted to the configured label vocabulary. Defaults to the configured default repo when `repo` is omitted.",
   inputSchema: editLabelsInputSchema,
   validate(input, context) {
     const invalid = [
@@ -40,5 +43,8 @@ export const editLabelsTool = defineTool<EditLabelsInput>({
       ],
     };
   },
-  call: (context, input) => editLabels(context.github, input),
+  async call(context, input) {
+    const labels = await editLabels(context.github, input);
+    return { repo: context.repo, labels };
+  },
 });

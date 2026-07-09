@@ -26,7 +26,8 @@ describe("viewIssueHandler", () => {
     return join(dir, "audit.log");
   }
 
-  it("returns the issue's body, labels, and comment history as tool content", async () => {
+  it("Given GitHub returns the issue and its comments, When view_issue is called, Then it returns the issue's body, labels, and comment history as tool content", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string) => {
@@ -40,8 +41,10 @@ describe("viewIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3 });
 
+    // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload).toEqual({
@@ -54,7 +57,8 @@ describe("viewIssueHandler", () => {
     });
   });
 
-  it("appends a successful entry to the audit log with the issue number as args", async () => {
+  it("Given GitHub accepts the request, When view_issue is called, Then it appends a successful entry to the audit log with the issue number as args", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string) =>
@@ -67,29 +71,37 @@ describe("viewIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3 });
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "view_issue", args: { number: 3 }, success: true, githubStatus: 200 });
   });
 
-  it("returns the real GitHub status and message as an error result when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When view_issue is called, Then it returns the real GitHub status and message as an error result", async () => {
+    // Given
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))));
     const auditLog = auditLogPath();
 
+    // When
     const result = await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999 });
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
     expect((result.content[0] as { text: string }).text).toContain("Not Found");
   });
 
-  it("appends a failed entry with the GitHub status to the audit log on error", async () => {
+  it("Given the issue doesn't exist, When view_issue is called, Then it appends a failed entry with the GitHub status to the audit log", async () => {
+    // Given
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))));
     const auditLog = auditLogPath();
 
+    // When
     await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999 });
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "view_issue", args: { number: 999 }, success: false, githubStatus: 404 });
   });

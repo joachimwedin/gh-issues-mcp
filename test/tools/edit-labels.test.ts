@@ -27,7 +27,8 @@ describe("editLabelsHandler", () => {
     return join(dir, "audit.log");
   }
 
-  it("adds and removes labels from the configured vocabulary and returns the resulting label set", async () => {
+  it("Given labels from the configured vocabulary, When edit_labels is called with add and remove, Then it adds and removes them and returns the resulting label set", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -38,17 +39,20 @@ describe("editLabelsHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, add: ["ready-for-agent"], remove: ["needs-triage"] },
     );
 
+    // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload).toEqual([]);
   });
 
-  it("appends a successful entry to the audit log with the number, add, and remove as args", async () => {
+  it("Given GitHub accepts the label change, When edit_labels is called with add, Then it appends a successful entry to the audit log with the number, add, and remove as args", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
@@ -58,11 +62,13 @@ describe("editLabelsHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, add: ["ready-for-agent"] },
     );
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
       tool: "edit_labels",
@@ -72,33 +78,39 @@ describe("editLabelsHandler", () => {
     });
   });
 
-  it("rejects a label outside the configured vocabulary without making any GitHub API call", async () => {
+  it("Given a label outside the configured vocabulary, When edit_labels is called, Then it rejects the call without making any GitHub API call", async () => {
+    // Given
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const auditLog = auditLogPath();
 
+    // When
     const result = await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, add: ["typo-label"] },
     );
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("typo-label");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns the real GitHub status and message as an error result when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When edit_labels is called, Then it returns the real GitHub status and message as an error result", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 999, add: ["ready-for-agent"] },
     );
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
     expect((result.content[0] as { text: string }).text).toContain("Not Found");

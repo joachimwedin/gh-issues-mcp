@@ -26,23 +26,29 @@ describe("commentIssueHandler", () => {
     return join(dir, "audit.log");
   }
 
-  it("posts the comment and returns it as tool content", async () => {
+  it("Given GitHub accepts the comment, When comment_issue is called, Then it posts the comment and returns it as tool content", async () => {
+    // Given
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ body: "a comment" }))));
     const auditLog = auditLogPath();
 
+    // When
     const result = await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
 
+    // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload).toEqual({ body: "a comment" });
   });
 
-  it("appends a successful entry to the audit log with the number and body as args", async () => {
+  it("Given GitHub accepts the comment, When comment_issue is called, Then it appends a successful entry to the audit log with the number and body as args", async () => {
+    // Given
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ body: "a comment" }))));
     const auditLog = auditLogPath();
 
+    // When
     await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
       tool: "comment_issue",
@@ -52,29 +58,35 @@ describe("commentIssueHandler", () => {
     });
   });
 
-  it("returns the real GitHub status and message as an error result when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When comment_issue is called, Then it returns the real GitHub status and message as an error result", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
     expect((result.content[0] as { text: string }).text).toContain("Not Found");
   });
 
-  it("appends a failed entry with the GitHub status to the audit log on error", async () => {
+  it("Given the issue doesn't exist, When comment_issue is called, Then it appends a failed entry with the GitHub status to the audit log", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
     const auditLog = auditLogPath();
 
+    // When
     await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "comment_issue", success: false, githubStatus: 404 });
   });

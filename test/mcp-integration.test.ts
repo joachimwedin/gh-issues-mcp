@@ -47,7 +47,8 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     return { url: new URL(`http://127.0.0.1:${port}/mcp`), auditLogPath };
   }
 
-  it("lists tools and calls list_issues end-to-end over the real HTTP transport", async () => {
+  it("Given GitHub returns issues, When a client connects and calls list_issues, Then it lists all tools, returns the mapped issue, and appends an audit log entry", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string | URL, init?: RequestInit) => {
@@ -67,7 +68,11 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     const transport = new StreamableHTTPClientTransport(url);
     await client.connect(transport);
 
+    // When
     const tools = await client.listTools();
+    const result = await client.callTool({ name: "list_issues", arguments: {} });
+
+    // Then
     expect(tools.tools.map((t) => t.name).sort()).toEqual([
       "close_issue",
       "comment_issue",
@@ -79,7 +84,6 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       "view_issue",
     ]);
 
-    const result = await client.callTool({ name: "list_issues", arguments: {} });
     expect(result.isError).toBeFalsy();
     const content = (result.content as { type: string; text: string }[])[0];
     expect(JSON.parse(content.text)).toEqual([
@@ -92,7 +96,8 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     expect(entry).toMatchObject({ tool: "list_issues", success: true, githubStatus: 200 });
   });
 
-  it("surfaces the real GitHub error status/message through a tool call, without a generic error", async () => {
+  it("Given GitHub returns a 404, When view_issue is called through a client, Then it surfaces the real GitHub error status/message through the tool call, without a generic error", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string | URL, init?: RequestInit) => {
@@ -110,8 +115,10 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     const transport = new StreamableHTTPClientTransport(url);
     await client.connect(transport);
 
+    // When
     const result = await client.callTool({ name: "view_issue", arguments: { number: 999 } });
 
+    // Then
     expect(result.isError).toBe(true);
     const content = (result.content as { type: string; text: string }[])[0];
     expect(content.text).toContain("404");
@@ -120,7 +127,8 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     await client.close();
   });
 
-  it("accepts a second client connecting after a first client has already connected", async () => {
+  it("Given a first client has already connected and called a tool, When a second client connects and calls list_issues, Then it succeeds", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string | URL, init?: RequestInit) => {
@@ -142,19 +150,25 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     expect(firstResult.isError).toBeFalsy();
     await firstClient.close();
 
+    // When
     const secondClient = new Client({ name: "second-client", version: "1.0.0" });
     await secondClient.connect(new StreamableHTTPClientTransport(url));
     const secondResult = await secondClient.callTool({ name: "list_issues", arguments: {} });
+
+    // Then
     expect(secondResult.isError).toBeFalsy();
     await secondClient.close();
   });
 
-  it("still serves GET /health correctly alongside the MCP endpoint", async () => {
+  it("Given the server is running, When GET /health is requested, Then it still serves the health check correctly alongside the MCP endpoint", async () => {
+    // Given
     const { url } = await start();
 
+    // When
     const res = await realFetch(`http://127.0.0.1:${url.port}/health`);
     const body = await res.json();
 
+    // Then
     expect(body).toEqual({ status: "ok", tokenLoaded: true });
   });
 });

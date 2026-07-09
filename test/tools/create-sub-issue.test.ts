@@ -26,7 +26,8 @@ describe("createSubIssueHandler", () => {
     return join(dir, "audit.log");
   }
 
-  it("creates the sub-issue and returns it as tool content", async () => {
+  it("Given the parent exists and GitHub accepts the new issue, When create_sub_issue is called, Then it creates the sub-issue and returns it as tool content", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -46,17 +47,20 @@ describe("createSubIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
 
+    // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload).toEqual({ number: 10, title: "a sub-issue", state: "open", body: "sub body", labels: [] });
   });
 
-  it("appends a successful entry to the audit log with the parent number, title, and body as args", async () => {
+  it("Given the parent exists and GitHub accepts the new issue, When create_sub_issue is called, Then it appends a successful entry to the audit log with the parent number, title, and body as args", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -76,11 +80,13 @@ describe("createSubIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
       tool: "create_sub_issue",
@@ -90,31 +96,37 @@ describe("createSubIssueHandler", () => {
     });
   });
 
-  it("returns the real GitHub status and message as an error result and creates no issue when the parent doesn't exist", async () => {
+  it("Given the parent doesn't exist, When create_sub_issue is called, Then it returns the real GitHub status and message as an error result and creates no issue", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
     const auditLog = auditLogPath();
 
+    // When
     const result = await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 999, title: "a sub-issue", body: "sub body" },
     );
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
     expect((result.content[0] as { text: string }).text).toContain("Not Found");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("appends a failed entry with the GitHub status to the audit log on error", async () => {
+  it("Given GitHub rejects the new issue, When create_sub_issue is called, Then it appends a failed entry with the GitHub status to the audit log", async () => {
+    // Given
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ message: "Validation Failed" }, 422)));
     const auditLog = auditLogPath();
 
+    // When
     await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "create_sub_issue", success: false, githubStatus: 422 });
   });

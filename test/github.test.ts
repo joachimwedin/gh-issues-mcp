@@ -25,7 +25,8 @@ describe("listIssues", () => {
     vi.unstubAllGlobals();
   });
 
-  it("requests the configured repo's issues and maps them to a plain shape", async () => {
+  it("Given GitHub returns issues in the raw API shape, When listIssues is called, Then it requests the configured repo's issues and maps them to a plain shape", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse([
         {
@@ -39,8 +40,10 @@ describe("listIssues", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const issues = await listIssues(config, {});
 
+    // Then
     expect(issues).toEqual([
       {
         number: 3,
@@ -58,19 +61,23 @@ describe("listIssues", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-token");
   });
 
-  it("passes state and labels filters through as query params", async () => {
+  it("Given GitHub accepts the request, When listIssues is called with state and labels filters, Then it passes them through as query params", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     await listIssues(config, { state: "closed", labels: ["bug", "urgent"] });
 
+    // Then
     const [url] = fetchMock.mock.calls[0] as [string];
     expect(url).toBe(
       "https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues?state=closed&labels=bug%2Curgent",
     );
   });
 
-  it("excludes pull requests from the results", async () => {
+  it("Given GitHub returns a mix of issues and pull requests, When listIssues is called, Then it excludes pull requests from the results", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse([
         { number: 1, title: "an issue", state: "open", body: null, labels: [] },
@@ -86,26 +93,32 @@ describe("listIssues", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const issues = await listIssues(config, {});
 
+    // Then
     expect(issues.map((i) => i.number)).toEqual([1]);
   });
 
-  it("throws a GitHubApiError with the real status and message on a 404", async () => {
+  it("Given GitHub returns a 404, When listIssues is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(listIssues(config, {})).rejects.toMatchObject(
       new GitHubApiError(404, "Not Found"),
     );
   });
 
-  it("throws a GitHubApiError with the real status and message on a rate limit response", async () => {
+  it("Given GitHub returns a rate limit response, When listIssues is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({ message: "API rate limit exceeded for installation." }, 403),
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(listIssues(config, {})).rejects.toMatchObject(
       new GitHubApiError(403, "API rate limit exceeded for installation."),
     );
@@ -117,7 +130,8 @@ describe("viewIssue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns the issue's body, labels, and full comment history", async () => {
+  it("Given GitHub returns the issue and its comments, When viewIssue is called, Then it returns the issue's body, labels, and full comment history", async () => {
+    // Given
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url.endsWith("/issues/3")) {
         return Promise.resolve(
@@ -137,8 +151,10 @@ describe("viewIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const issue = await viewIssue(config, { number: 3 });
 
+    // Then
     expect(issue).toEqual({
       number: 3,
       title: "list_issues and view_issue tools",
@@ -149,10 +165,12 @@ describe("viewIssue", () => {
     });
   });
 
-  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When viewIssue is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404)));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(viewIssue(config, { number: 999 })).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
   });
 });
@@ -162,12 +180,15 @@ describe("commentIssue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("posts a comment to the given issue and returns it", async () => {
+  it("Given GitHub accepts the comment, When commentIssue is called, Then it posts a comment to the given issue and returns it", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ body: "a new comment" }));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const comment = await commentIssue(config, { number: 3, body: "a new comment" });
 
+    // Then
     expect(comment).toEqual({ body: "a new comment" });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -177,10 +198,12 @@ describe("commentIssue", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-token");
   });
 
-  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When commentIssue is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(commentIssue(config, { number: 999, body: "hi" })).rejects.toMatchObject(
       new GitHubApiError(404, "Not Found"),
     );
@@ -192,7 +215,8 @@ describe("closeIssue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("posts the comment then closes the issue, returning the updated issue", async () => {
+  it("Given GitHub accepts the comment and close, When closeIssue is called, Then it posts the comment then closes the issue, returning the updated issue", async () => {
+    // Given
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.endsWith("/issues/3/comments")) {
         return Promise.resolve(jsonResponse({ body: "closing this out" }));
@@ -206,8 +230,10 @@ describe("closeIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const issue = await closeIssue(config, { number: 3, comment: "closing this out" });
 
+    // Then
     expect(issue).toEqual({ number: 3, title: "an issue", state: "closed", body: "body", labels: ["bug"] });
 
     const commentCall = fetchMock.mock.calls.find(([url]) => (url as string).endsWith("/comments"));
@@ -217,10 +243,12 @@ describe("closeIssue", () => {
     expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({ state: "closed" });
   });
 
-  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When closeIssue is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(closeIssue(config, { number: 999, comment: "closing" })).rejects.toMatchObject(
       new GitHubApiError(404, "Not Found"),
     );
@@ -232,14 +260,17 @@ describe("editLabels", () => {
     vi.unstubAllGlobals();
   });
 
-  it("posts the given labels to add and returns the resulting label set", async () => {
+  it("Given GitHub accepts the label addition, When editLabels is called with a label to add, Then it posts the given labels to add and returns the resulting label set", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse([{ name: "ready-for-agent" }, { name: "needs-info" }]),
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const labels = await editLabels(config, { number: 3, add: ["needs-info"], remove: [] });
 
+    // Then
     expect(labels).toEqual(["ready-for-agent", "needs-info"]);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -248,7 +279,8 @@ describe("editLabels", () => {
     expect(JSON.parse(init.body as string)).toEqual({ labels: ["needs-info"] });
   });
 
-  it("deletes each label to remove, one call per label, and returns the resulting label set", async () => {
+  it("Given GitHub accepts each deletion, When editLabels is called with labels to remove, Then it deletes each label, one call per label, and returns the resulting label set", async () => {
+    // Given
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url.endsWith("/labels/needs-triage")) return Promise.resolve(jsonResponse([{ name: "wontfix" }]));
       if (url.endsWith("/labels/needs-info")) return Promise.resolve(jsonResponse([]));
@@ -256,8 +288,10 @@ describe("editLabels", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const labels = await editLabels(config, { number: 3, add: [], remove: ["needs-triage", "needs-info"] });
 
+    // Then
     expect(labels).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const [firstUrl, firstInit] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -267,16 +301,19 @@ describe("editLabels", () => {
     expect(firstInit.method).toBe("DELETE");
   });
 
-  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When editLabels is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(editLabels(config, { number: 999, add: ["needs-info"], remove: [] })).rejects.toMatchObject(
       new GitHubApiError(404, "Not Found"),
     );
   });
 
-  it("fetches the issue's current labels when neither add nor remove is given", async () => {
+  it("Given neither add nor remove is given, When editLabels is called, Then it fetches the issue's current labels", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         number: 3,
@@ -288,8 +325,10 @@ describe("editLabels", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const labels = await editLabels(config, { number: 3, add: [], remove: [] });
 
+    // Then
     expect(labels).toEqual(["bug"]);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit | undefined];
     expect(url).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3");
@@ -324,12 +363,15 @@ describe("createSubIssue", () => {
     });
   }
 
-  it("verifies the parent exists, creates a new issue, links it under the parent, and returns the new issue", async () => {
+  it("Given the parent exists and GitHub accepts all requests, When createSubIssue is called, Then it verifies the parent exists, creates a new issue, links it under the parent, and returns the new issue", async () => {
+    // Given
     const fetchMock = stubHappyPath();
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const issue = await createSubIssue(config, { parentNumber: 3, title: "a sub-issue", body: "sub body" });
 
+    // Then
     expect(issue).toEqual({ number: 10, title: "a sub-issue", state: "open", body: "sub body", labels: [] });
 
     const parentCheckCall = fetchMock.mock.calls.find(
@@ -357,10 +399,12 @@ describe("createSubIssue", () => {
     ]);
   });
 
-  it("throws a GitHubApiError and creates no issue when the parent doesn't exist", async () => {
+  it("Given the parent doesn't exist, When createSubIssue is called, Then it throws a GitHubApiError and creates no issue", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(
       createSubIssue(config, { parentNumber: 999, title: "title", body: "body" }),
     ).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
@@ -369,7 +413,8 @@ describe("createSubIssue", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/999");
   });
 
-  it("throws a GitHubApiError with the real status and message when creating the issue fails", async () => {
+  it("Given the parent exists but creating the issue fails, When createSubIssue is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.endsWith("/issues/3") && (init?.method ?? "GET") === "GET") {
         return Promise.resolve(jsonResponse({ id: 1, number: 3, title: "parent", state: "open", body: null, labels: [] }));
@@ -381,12 +426,14 @@ describe("createSubIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(
       createSubIssue(config, { parentNumber: 3, title: "title", body: "body" }),
     ).rejects.toMatchObject(new GitHubApiError(422, "Validation Failed"));
   });
 
-  it("throws a GitHubApiError with the real status and message when linking to the parent fails", async () => {
+  it("Given the parent exists and the issue is created but linking fails, When createSubIssue is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.endsWith("/issues/3") && (init?.method ?? "GET") === "GET") {
         return Promise.resolve(jsonResponse({ id: 1, number: 3, title: "parent", state: "open", body: null, labels: [] }));
@@ -401,6 +448,7 @@ describe("createSubIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(
       createSubIssue(config, { parentNumber: 3, title: "title", body: "body" }),
     ).rejects.toMatchObject(new GitHubApiError(500, "Server Error"));
@@ -412,7 +460,8 @@ describe("createIssue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("posts a new top-level issue and returns it", async () => {
+  it("Given GitHub accepts the new issue, When createIssue is called, Then it posts a new top-level issue and returns it", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(
         { id: 42, number: 11, title: "a new issue", state: "open", body: "issue body", labels: [] },
@@ -421,8 +470,10 @@ describe("createIssue", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const issue = await createIssue(config, { title: "a new issue", body: "issue body" });
 
+    // Then
     expect(issue).toEqual({ number: 11, title: "a new issue", state: "open", body: "issue body", labels: [] });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -431,7 +482,8 @@ describe("createIssue", () => {
     expect(JSON.parse(init.body as string)).toEqual({ title: "a new issue", body: "issue body" });
   });
 
-  it("includes labels in the request body when given", async () => {
+  it("Given GitHub accepts the new issue, When createIssue is called with labels, Then it includes labels in the request body", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(
         { id: 42, number: 11, title: "a new issue", state: "open", body: "issue body", labels: [{ name: "bug" }] },
@@ -440,16 +492,20 @@ describe("createIssue", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     await createIssue(config, { title: "a new issue", body: "issue body", labels: ["bug"] });
 
+    // Then
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ title: "a new issue", body: "issue body", labels: ["bug"] });
   });
 
-  it("throws a GitHubApiError with the real status and message on failure", async () => {
+  it("Given GitHub rejects the new issue, When createIssue is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Validation Failed" }, 422));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(createIssue(config, { title: "title", body: "body" })).rejects.toMatchObject(
       new GitHubApiError(422, "Validation Failed"),
     );
@@ -461,14 +517,17 @@ describe("editIssue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("PATCHes only the given title and returns the updated issue", async () => {
+  it("Given GitHub accepts the update, When editIssue is called with only a title, Then it PATCHes only the given title and returns the updated issue", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({ number: 3, title: "an updated title", state: "open", body: "original body", labels: [] }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     const issue = await editIssue(config, { number: 3, title: "an updated title" });
 
+    // Then
     expect(issue).toEqual({ number: 3, title: "an updated title", state: "open", body: "original body", labels: [] });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -477,34 +536,42 @@ describe("editIssue", () => {
     expect(JSON.parse(init.body as string)).toEqual({ title: "an updated title" });
   });
 
-  it("PATCHes only the given body when title is omitted", async () => {
+  it("Given GitHub accepts the update, When editIssue is called with only a body, Then it PATCHes only the given body", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({ number: 3, title: "original title", state: "open", body: "an updated body", labels: [] }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     await editIssue(config, { number: 3, body: "an updated body" });
 
+    // Then
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ body: "an updated body" });
   });
 
-  it("PATCHes both title and body when both are given", async () => {
+  it("Given GitHub accepts the update, When editIssue is called with both title and body, Then it PATCHes both", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({ number: 3, title: "new title", state: "open", body: "new body", labels: [] }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // When
     await editIssue(config, { number: 3, title: "new title", body: "new body" });
 
+    // Then
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ title: "new title", body: "new body" });
   });
 
-  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When editIssue is called, Then it throws a GitHubApiError with the real status and message", async () => {
+    // Given
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
+    // When / Then
     await expect(editIssue(config, { number: 999, title: "title" })).rejects.toMatchObject(
       new GitHubApiError(404, "Not Found"),
     );

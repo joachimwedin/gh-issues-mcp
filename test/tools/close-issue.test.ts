@@ -27,7 +27,8 @@ describe("closeIssueHandler", () => {
     return join(dir, "audit.log");
   }
 
-  it("posts the comment, closes the issue, and returns the updated issue as tool content", async () => {
+  it("Given GitHub accepts the comment and close, When close_issue is called, Then it posts the comment, closes the issue, and returns the updated issue as tool content", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -42,17 +43,20 @@ describe("closeIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await closeIssueTool.handler(
       { github, auditLogPath: auditLog },
       { number: 3, comment: "closing this out" },
     );
 
+    // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload).toEqual({ number: 3, title: "an issue", state: "closed", body: "body", labels: [] });
   });
 
-  it("appends a successful entry to the audit log with the number and comment as args", async () => {
+  it("Given GitHub accepts the comment and close, When close_issue is called, Then it appends a successful entry to the audit log with the number and comment as args", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -65,8 +69,10 @@ describe("closeIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, comment: "closing" });
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
       tool: "close_issue",
@@ -76,38 +82,47 @@ describe("closeIssueHandler", () => {
     });
   });
 
-  it("returns the real GitHub status and message as an error result when the issue doesn't exist", async () => {
+  it("Given the issue doesn't exist, When close_issue is called, Then it returns the real GitHub status and message as an error result", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
     expect((result.content[0] as { text: string }).text).toContain("Not Found");
   });
 
-  it("appends a failed entry with the GitHub status to the audit log on error", async () => {
+  it("Given the issue doesn't exist, When close_issue is called, Then it appends a failed entry with the GitHub status to the audit log", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
     const auditLog = auditLogPath();
 
+    // When
     await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "close_issue", success: false, githubStatus: 404 });
   });
 
-  it("rejects a missing comment at the schema level, not via a runtime check", () => {
+  it("Given an input missing the comment field, When the schema validates it, Then it rejects the input at the schema level, not via a runtime check", () => {
+    // Given
     const schema = z.object(closeIssueInputSchema);
 
+    // When
     const result = schema.safeParse({ number: 3 });
 
+    // Then
     expect(result.success).toBe(false);
   });
 });

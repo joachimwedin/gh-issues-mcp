@@ -22,39 +22,51 @@ describe("health check endpoint", () => {
     });
   }
 
-  it("reports server-up and token-loaded status on GET /health", async () => {
+  it("Given the token loaded successfully, When GET /health is requested, Then it reports server-up and token-loaded status", async () => {
+    // Given
     const port = await listen(true);
 
+    // When
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     const body = await res.json();
 
+    // Then
     expect(res.status).toBe(200);
     expect(body).toEqual({ status: "ok", tokenLoaded: true });
   });
 
-  it("reports tokenLoaded: false when no token was loaded, without exposing the endpoint elsewhere", async () => {
+  it("Given no token was loaded, When GET /health is requested, Then it reports tokenLoaded: false, without exposing the endpoint elsewhere", async () => {
+    // Given
     const port = await listen(false);
 
+    // When
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     const body = await res.json();
 
+    // Then
     expect(body).toEqual({ status: "ok", tokenLoaded: false });
   });
 
-  it("never includes a token value in the health response, by construction", async () => {
+  it("Given the token loaded successfully, When GET /health is requested, Then it never includes a token value in the response, by construction", async () => {
+    // Given
     const port = await listen(true);
 
+    // When
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     const rawBody = await res.text();
 
+    // Then
     expect(Object.keys(JSON.parse(rawBody))).toEqual(["status", "tokenLoaded"]);
   });
 
-  it("returns 404 for unknown routes", async () => {
+  it("Given the server is running, When an unknown route is requested, Then it returns 404", async () => {
+    // Given
     const port = await listen(true);
 
+    // When
     const res = await fetch(`http://127.0.0.1:${port}/unknown`);
 
+    // Then
     expect(res.status).toBe(404);
   });
 });

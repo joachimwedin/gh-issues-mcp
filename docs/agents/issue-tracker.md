@@ -1,17 +1,36 @@
 # Issue tracker: GitHub
 
-Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and PRDs for this repo live as GitHub issues. **This repo dogfoods its
+own server**: use the `gh-issues-mcp` MCP tools for all issue operations.
+The `gh` CLI is not a fallback — treat it as unavailable. If an operation
+you need isn't covered by any tool below, that's a real gap in the server,
+not something to route around: say so explicitly, and treat it as a
+candidate for a new `gh-issues-mcp` tool (e.g. by filing an issue against
+this repo) rather than improvising another way to do it.
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: `gh issue close <number> --comment "..."`
+- **Create an issue**: no tool covers this yet — top-level issue creation is
+  a known gap. Flag it rather than working around it.
+- **Read an issue**: `view_issue(number)` — returns body, labels, and full
+  comment history in one call.
+- **List issues**: `list_issues(state?, labels?)` — PRs are excluded
+  automatically, since this server treats issues, not PRs, as the triage
+  surface.
+- **Comment on an issue**: `comment_issue(number, body)`.
+- **Apply / remove labels**: `edit_labels(number, add?, remove?)`. Only
+  labels in the server's configured vocabulary are accepted — see
+  `docs/agents/triage-labels.md`. If a label you need isn't in the
+  vocabulary, flag it as a gap (config or tool) rather than trying to force
+  it another way.
+- **Close**: `close_issue(number, comment)` — `comment` is required, so an
+  issue can never be closed without an explanation.
+- **Create a sub-issue**: `create_sub_issue(parent_number, title, body)` —
+  creates a new issue and links it to the parent via GitHub's sub-issues API
+  in one call.
 
-Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
+There is currently no tool for editing an issue's title/body after creation,
+and none for creating a top-level (non-sub) issue. Both are known gaps.
 
 ## Pull requests as a triage surface
 
@@ -27,19 +46,20 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Create a GitHub issue. Note: no MCP tool covers top-level creation yet —
+see the gap noted above.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Call `view_issue(number)`.
 
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
-- **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`), plus `wayfinder:claimed` once claimed.
+- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. Creating it hits the same top-level-creation gap noted above — flag it.
+- **Child ticket**: `create_sub_issue(parent_number, title, body)` — creates the child and links it to the map in one call. Where sub-issues aren't enabled on the repo, this tool call will fail; that's a gap to flag, not something to route around by editing the map body (no tool edits issue bodies either). Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`), plus `wayfinder:claimed` once claimed — apply via `edit_labels`.
 - **Blocking**: native issue relationships where available; otherwise a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every issue it lists is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open `Blocked by` issue or the `wayfinder:claimed` label; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-label wayfinder:claimed` — the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+- **Frontier query**: `list_issues(state: "open")` scoped to the map's sub-issues / task list, drop any with an open `Blocked by` issue or the `wayfinder:claimed` label; first in map order wins.
+- **Claim**: `edit_labels(n, add: ["wayfinder:claimed"])` — the session's first write.
+- **Resolve**: `comment_issue(n, "<answer>")`, then `close_issue(n, "<answer/summary>")`, then append a context pointer (gist + link) to the map's Decisions-so-far.

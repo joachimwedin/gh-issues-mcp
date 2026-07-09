@@ -17,11 +17,11 @@ A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub
    security add-generic-password \
      -a "$USER" \
      -s "gh-issues-mcp" \
-     -w "<your-fine-grained-PAT>" \
-     -T ""
+     -T "" \
+     -w
    ```
 
-   The first time a process reads it back (including the server itself, on startup), macOS prompts you to click **Allow**. See [Keychain storage](#keychain-storage) for what `-T ""` does and how to replace a token later.
+   `-w` with no value prompts for the token instead of taking it as an argument, so it never lands in your shell history. The first time a process reads it back, macOS prompts you to click **Allow**. See [Keychain storage](#keychain-storage) for what `-T ""` does and how to replace a token later.
 
 3. **Point it at your repo.** Create `~/.config/gh-issues-mcp/config.json`. This is the config this repo's own server runs with — swap `owner`/`repo` for your target:
 
@@ -160,9 +160,11 @@ The server never reads the token from an environment variable or a file on disk 
 security add-generic-password \
   -a "$USER" \
   -s "gh-issues-mcp" \
-  -w "<your-fine-grained-PAT>" \
-  -T ""
+  -T "" \
+  -w
 ```
+
+`-w` with no value prompts for the token instead of taking it as an argument, so it never lands in your shell history.
 
 `-T ""` is required — without it, any process can silently read the token back via `security find-generic-password`, no prompt. With it, every access (including the server's own) requires clicking **Allow** on a system dialog. For a real password prompt instead of a click, check "Ask for Keychain password" on the item in Keychain Access.app.
 

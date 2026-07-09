@@ -152,6 +152,9 @@ project's committed config. For example, in Claude Code's user config:
   else is rejected locally, before any GitHub API call is made.
 - `create_sub_issue(parent_number, title, body)` — creates a new issue and
   links it as a sub-issue of the given parent via GitHub's sub-issues API.
+- `create_issue(title, body, labels?)` — creates a new top-level issue in the
+  configured repo. Only labels from the configured vocabulary are allowed;
+  anything else is rejected locally, before any GitHub API call is made.
 
 ## Audit log
 

@@ -252,3 +252,20 @@ export async function createSubIssue(
 
   return normalizeIssue(created);
 }
+
+/**
+ * Creates a new top-level issue in the configured repo.
+ */
+export async function createIssue(
+  config: GitHubClientConfig,
+  title: string,
+  body: string,
+  labels?: string[],
+): Promise<GitHubIssue> {
+  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues`, {
+    method: "POST",
+    body: labels !== undefined ? { title, body, labels } : { title, body },
+  })) as RawIssue;
+
+  return normalizeIssue(raw);
+}

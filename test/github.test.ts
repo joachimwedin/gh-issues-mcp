@@ -6,6 +6,7 @@ import {
   closeIssue,
   editLabels,
   createSubIssue,
+  createIssue,
   GitHubApiError,
 } from "../src/github.js";
 
@@ -397,6 +398,55 @@ describe("createSubIssue", () => {
 
     await expect(createSubIssue(config, 3, "title", "body")).rejects.toMatchObject(
       new GitHubApiError(500, "Server Error"),
+    );
+  });
+});
+
+describe("createIssue", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts a new top-level issue and returns it", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { id: 42, number: 11, title: "a new issue", state: "open", body: "issue body", labels: [] },
+        201,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const issue = await createIssue(config, "a new issue", "issue body");
+
+    expect(issue).toEqual({ number: 11, title: "a new issue", state: "open", body: "issue body", labels: [] });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ title: "a new issue", body: "issue body" });
+  });
+
+  it("includes labels in the request body when given", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { id: 42, number: 11, title: "a new issue", state: "open", body: "issue body", labels: [{ name: "bug" }] },
+        201,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createIssue(config, "a new issue", "issue body", ["bug"]);
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ title: "a new issue", body: "issue body", labels: ["bug"] });
+  });
+
+  it("throws a GitHubApiError with the real status and message on failure", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Validation Failed" }, 422));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createIssue(config, "title", "body")).rejects.toMatchObject(
+      new GitHubApiError(422, "Validation Failed"),
     );
   });
 });

@@ -71,6 +71,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     expect(tools.tools.map((t) => t.name).sort()).toEqual([
       "close_issue",
       "comment_issue",
+      "create_issue",
       "create_sub_issue",
       "edit_labels",
       "list_issues",

@@ -10,8 +10,9 @@ this repo) rather than improvising another way to do it.
 
 ## Conventions
 
-- **Create an issue**: no tool covers this yet — top-level issue creation is
-  a known gap. Flag it rather than working around it.
+- **Create an issue**: `create_issue(title, body, labels?)` — creates a new
+  top-level issue. If `labels` is given, only labels in the server's
+  configured vocabulary are accepted — see `docs/agents/triage-labels.md`.
 - **Read an issue**: `view_issue(number)` — returns body, labels, and full
   comment history in one call.
 - **List issues**: `list_issues(state?, labels?)` — PRs are excluded
@@ -29,8 +30,8 @@ this repo) rather than improvising another way to do it.
   creates a new issue and links it to the parent via GitHub's sub-issues API
   in one call.
 
-There is currently no tool for editing an issue's title/body after creation,
-and none for creating a top-level (non-sub) issue. Both are known gaps.
+There is currently no tool for editing an issue's title/body after creation.
+That remains a known gap.
 
 ## Pull requests as a triage surface
 
@@ -46,8 +47,7 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue. Note: no MCP tool covers top-level creation yet —
-see the gap noted above.
+Call `create_issue(title, body, labels?)`.
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -57,7 +57,7 @@ Call `view_issue(number)`.
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. Creating it hits the same top-level-creation gap noted above — flag it.
+- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. Create it with `create_issue(title, body)`, then `edit_labels(n, add: ["wayfinder:map"])` (label vocabulary permitting — see `docs/agents/triage-labels.md`).
 - **Child ticket**: `create_sub_issue(parent_number, title, body)` — creates the child and links it to the map in one call. Where sub-issues aren't enabled on the repo, this tool call will fail; that's a gap to flag, not something to route around by editing the map body (no tool edits issue bodies either). Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`), plus `wayfinder:claimed` once claimed — apply via `edit_labels`.
 - **Blocking**: native issue relationships where available; otherwise a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every issue it lists is closed.
 - **Frontier query**: `list_issues(state: "open")` scoped to the map's sub-issues / task list, drop any with an open `Blocked by` issue or the `wayfinder:claimed` label; first in map order wins.

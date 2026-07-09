@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createSubIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
+import { tagRepo } from "./tag-repo.js";
 
 export interface CreateSubIssueInput {
   repo?: string;
@@ -27,6 +28,6 @@ export const createSubIssueTool = defineTool<CreateSubIssueInput>({
       title: input.title,
       body: input.body,
     });
-    return { ...issue, repo: context.repo };
+    return tagRepo(issue, context.repo);
   },
 });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { listIssues } from "../github.js";
 import { defineTool } from "./define-tool.js";
+import { tagRepo } from "./tag-repo.js";
 
 export interface ListIssuesInput {
   repo?: string;
@@ -21,6 +22,6 @@ export const listIssuesTool = defineTool<ListIssuesInput>({
   inputSchema: listIssuesInputSchema,
   async call(context, input) {
     const issues = await listIssues(context.github, input);
-    return issues.map((issue) => ({ ...issue, repo: context.repo }));
+    return issues.map((issue) => tagRepo(issue, context.repo));
   },
 });

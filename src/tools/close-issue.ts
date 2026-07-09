@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { closeIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
+import { tagRepo } from "./tag-repo.js";
 
 export interface CloseIssueInput {
   repo?: string;
@@ -26,6 +27,6 @@ export const closeIssueTool = defineTool<CloseIssueInput>({
   inputSchema: closeIssueInputSchema,
   async call(context, input) {
     const issue = await closeIssue(context.github, input);
-    return { ...issue, repo: context.repo };
+    return tagRepo(issue, context.repo);
   },
 });

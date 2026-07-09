@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { commentIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
+import { tagRepo } from "./tag-repo.js";
 
 export interface CommentIssueInput {
   repo?: string;
@@ -21,6 +22,6 @@ export const commentIssueTool = defineTool<CommentIssueInput>({
   inputSchema: commentIssueInputSchema,
   async call(context, input) {
     const comment = await commentIssue(context.github, input);
-    return { ...comment, repo: context.repo };
+    return tagRepo(comment, context.repo);
   },
 });

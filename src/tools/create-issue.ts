@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
+import { tagRepo } from "./tag-repo.js";
 
 export interface CreateIssueInput {
   repo?: string;
@@ -38,6 +39,6 @@ export const createIssueTool = defineTool<CreateIssueInput>({
   },
   async call(context, input) {
     const issue = await createIssue(context.github, input);
-    return { ...issue, repo: context.repo };
+    return tagRepo(issue, context.repo);
   },
 });

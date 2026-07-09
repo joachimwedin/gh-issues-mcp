@@ -24,15 +24,19 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
-  async function start(): Promise<{ url: URL; auditLogPath: string }> {
+  async function start(
+    repos: { repo: string; labelVocabulary?: string[] }[] = [{ repo: "joachimwedin/gh-issues-mcp" }],
+    defaultRepo = "joachimwedin/gh-issues-mcp",
+  ): Promise<{ url: URL; auditLogPath: string }> {
     dir = mkdtempSync(join(tmpdir(), "gh-issues-mcp-e2e-test-"));
     const auditLogPath = join(dir, "audit.log");
 
     server = createServer({ tokenLoaded: true }, () =>
       createMcpServer({
-        github: { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" },
+        token: "test-token",
+        repos,
+        defaultRepo,
         auditLogPath,
-        labelVocabulary: ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"],
       }),
     );
 
@@ -87,7 +91,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
     expect(result.isError).toBeFalsy();
     const content = (result.content as { type: string; text: string }[])[0];
     expect(JSON.parse(content.text)).toEqual([
-      { number: 3, title: "an issue", state: "open", body: "body", labels: ["bug"] },
+      { number: 3, title: "an issue", state: "open", body: "body", labels: ["bug"], repo: "joachimwedin/gh-issues-mcp" },
     ]);
 
     await client.close();
@@ -170,5 +174,68 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
 
     // Then
     expect(body).toEqual({ status: "ok", tokenLoaded: true });
+  });
+
+  it("Given a server configured with two allowlisted repos, When list_issues is called naming each repo and once omitting repo, Then each call hits the right repo and the omitted-repo call falls back to the default", async () => {
+    // Given
+    const fetchMock = vi.fn().mockImplementation((url: string | URL, init?: RequestInit) => {
+      const href = url.toString();
+      if (href.includes("/repos/joachimwedin/gh-issues-mcp/issues")) {
+        return Promise.resolve(
+          jsonResponse([{ number: 1, title: "default repo issue", state: "open", body: null, labels: [] }]),
+        );
+      }
+      if (href.includes("/repos/joachimwedin/other-repo/issues")) {
+        return Promise.resolve(
+          jsonResponse([{ number: 2, title: "other repo issue", state: "open", body: null, labels: [] }]),
+        );
+      }
+      return realFetch(href, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { url, auditLogPath } = await start(
+      [{ repo: "joachimwedin/gh-issues-mcp" }, { repo: "joachimwedin/other-repo" }],
+      "joachimwedin/gh-issues-mcp",
+    );
+
+    const client = new Client({ name: "test-client", version: "1.0.0" });
+    await client.connect(new StreamableHTTPClientTransport(url));
+
+    // When
+    const explicitDefault = await client.callTool({
+      name: "list_issues",
+      arguments: { repo: "joachimwedin/gh-issues-mcp" },
+    });
+    const explicitOther = await client.callTool({
+      name: "list_issues",
+      arguments: { repo: "joachimwedin/other-repo" },
+    });
+    const omitted = await client.callTool({ name: "list_issues", arguments: {} });
+
+    // Then
+    const explicitDefaultContent = (explicitDefault.content as { type: string; text: string }[])[0];
+    expect(JSON.parse(explicitDefaultContent.text)).toEqual([
+      { number: 1, title: "default repo issue", state: "open", body: null, labels: [], repo: "joachimwedin/gh-issues-mcp" },
+    ]);
+
+    const explicitOtherContent = (explicitOther.content as { type: string; text: string }[])[0];
+    expect(JSON.parse(explicitOtherContent.text)).toEqual([
+      { number: 2, title: "other repo issue", state: "open", body: null, labels: [], repo: "joachimwedin/other-repo" },
+    ]);
+
+    const omittedContent = (omitted.content as { type: string; text: string }[])[0];
+    expect(JSON.parse(omittedContent.text)).toEqual([
+      { number: 1, title: "default repo issue", state: "open", body: null, labels: [], repo: "joachimwedin/gh-issues-mcp" },
+    ]);
+
+    await client.close();
+
+    const entries = readFileSync(auditLogPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+    expect(entries.map((entry) => entry.repo)).toEqual([
+      "joachimwedin/gh-issues-mcp",
+      "joachimwedin/other-repo",
+      "joachimwedin/gh-issues-mcp",
+    ]);
   });
 });

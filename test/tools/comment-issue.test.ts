@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commentIssueTool } from "../../src/tools/comment-issue.js";
 
-const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
+const token = "test-token";
+const repos = [{ repo: "joachimwedin/gh-issues-mcp" }];
+const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -32,7 +34,7 @@ describe("commentIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    const result = await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
+    const result = await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3, body: "a comment" });
 
     // Then
     expect(result.isError).toBeUndefined();
@@ -46,7 +48,7 @@ describe("commentIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
+    await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3, body: "a comment" });
 
     // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
@@ -67,7 +69,7 @@ describe("commentIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    const result = await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
+    const result = await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, body: "a comment" });
 
     // Then
     expect(result.isError).toBe(true);
@@ -84,7 +86,7 @@ describe("commentIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
+    await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, body: "a comment" });
 
     // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());

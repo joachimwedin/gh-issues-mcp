@@ -12,6 +12,7 @@ export interface AuditLogEntry {
   args: unknown;
   success: boolean;
   githubStatus?: number;
+  repo?: string;
 }
 
 /**

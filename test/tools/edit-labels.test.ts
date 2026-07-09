@@ -4,8 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { editLabelsTool } from "../../src/tools/edit-labels.js";
 
-const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
-const labelVocabulary = ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"];
+const token = "test-token";
+const repos = [
+  {
+    repo: "joachimwedin/gh-issues-mcp",
+    labelVocabulary: ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"],
+  },
+];
+const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -41,7 +47,7 @@ describe("editLabelsHandler", () => {
 
     // When
     const result = await editLabelsTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 3, add: ["ready-for-agent"], remove: ["needs-triage"] },
     );
 
@@ -64,7 +70,7 @@ describe("editLabelsHandler", () => {
 
     // When
     await editLabelsTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 3, add: ["ready-for-agent"] },
     );
 
@@ -86,7 +92,7 @@ describe("editLabelsHandler", () => {
 
     // When
     const result = await editLabelsTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 3, add: ["typo-label"] },
     );
 
@@ -106,7 +112,7 @@ describe("editLabelsHandler", () => {
 
     // When
     const result = await editLabelsTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 999, add: ["ready-for-agent"] },
     );
 

@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { z } from "zod";
 import { closeIssueTool, closeIssueInputSchema } from "../../src/tools/close-issue.js";
 
-const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
+const token = "test-token";
+const repos = [{ repo: "joachimwedin/gh-issues-mcp" }];
+const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -45,7 +47,7 @@ describe("closeIssueHandler", () => {
 
     // When
     const result = await closeIssueTool.handler(
-      { github, auditLogPath: auditLog },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 3, comment: "closing this out" },
     );
 
@@ -70,7 +72,7 @@ describe("closeIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, comment: "closing" });
+    await closeIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3, comment: "closing" });
 
     // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
@@ -91,7 +93,7 @@ describe("closeIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    const result = await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
+    const result = await closeIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, comment: "closing" });
 
     // Then
     expect(result.isError).toBe(true);
@@ -108,7 +110,7 @@ describe("closeIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
+    await closeIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, comment: "closing" });
 
     // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());

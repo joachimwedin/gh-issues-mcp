@@ -4,8 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createIssueTool } from "../../src/tools/create-issue.js";
 
-const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
-const labelVocabulary = ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"];
+const token = "test-token";
+const repos = [
+  {
+    repo: "joachimwedin/gh-issues-mcp",
+    labelVocabulary: ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"],
+  },
+];
+const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -44,7 +50,7 @@ describe("createIssueHandler", () => {
 
     // When
     const result = await createIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { title: "a new issue", body: "issue body" },
     );
 
@@ -73,7 +79,7 @@ describe("createIssueHandler", () => {
 
     // When
     await createIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { title: "a new issue", body: "issue body", labels: ["ready-for-agent"] },
     );
 
@@ -95,7 +101,7 @@ describe("createIssueHandler", () => {
 
     // When
     const result = await createIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { title: "a new issue", body: "issue body", labels: ["typo-label"] },
     );
 
@@ -115,7 +121,7 @@ describe("createIssueHandler", () => {
 
     // When
     const result = await createIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { title: "a new issue", body: "issue body" },
     );
 

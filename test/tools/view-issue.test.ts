@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { viewIssueTool } from "../../src/tools/view-issue.js";
 
-const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
+const token = "test-token";
+const repos = [{ repo: "joachimwedin/gh-issues-mcp" }];
+const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -42,7 +44,7 @@ describe("viewIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    const result = await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3 });
+    const result = await viewIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3 });
 
     // Then
     expect(result.isError).toBeUndefined();
@@ -72,7 +74,7 @@ describe("viewIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3 });
+    await viewIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3 });
 
     // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
@@ -85,7 +87,7 @@ describe("viewIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    const result = await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999 });
+    const result = await viewIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999 });
 
     // Then
     expect(result.isError).toBe(true);
@@ -99,7 +101,7 @@ describe("viewIssueHandler", () => {
     const auditLog = auditLogPath();
 
     // When
-    await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999 });
+    await viewIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999 });
 
     // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());

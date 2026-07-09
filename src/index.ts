@@ -16,14 +16,15 @@ function main() {
 
   const server = createServer({ tokenLoaded: true }, () =>
     createMcpServer({
-      github: { owner: config.owner, repo: config.repo, token },
+      token,
+      repos: config.repos,
+      defaultRepo: config.defaultRepo,
       auditLogPath: AUDIT_LOG_PATH,
-      labelVocabulary: config.labelVocabulary,
     }),
   );
   server.listen(config.port, "127.0.0.1", () => {
     console.log(
-      `gh-issues-mcp listening on http://127.0.0.1:${config.port} (repo: ${config.owner}/${config.repo})`,
+      `gh-issues-mcp listening on http://127.0.0.1:${config.port} (repos: ${config.repos.map((r) => r.repo).join(", ")}, default: ${config.defaultRepo})`,
     );
   });
 }

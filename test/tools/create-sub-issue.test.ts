@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSubIssueTool } from "../../src/tools/create-sub-issue.js";
 
-const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
+const token = "test-token";
+const repos = [{ repo: "joachimwedin/gh-issues-mcp" }];
+const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -49,7 +51,7 @@ describe("createSubIssueHandler", () => {
 
     // When
     const result = await createSubIssueTool.handler(
-      { github, auditLogPath: auditLog },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
 
@@ -82,7 +84,7 @@ describe("createSubIssueHandler", () => {
 
     // When
     await createSubIssueTool.handler(
-      { github, auditLogPath: auditLog },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
 
@@ -104,7 +106,7 @@ describe("createSubIssueHandler", () => {
 
     // When
     const result = await createSubIssueTool.handler(
-      { github, auditLogPath: auditLog },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { parent_number: 999, title: "a sub-issue", body: "sub body" },
     );
 
@@ -122,7 +124,7 @@ describe("createSubIssueHandler", () => {
 
     // When
     await createSubIssueTool.handler(
-      { github, auditLogPath: auditLog },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
 

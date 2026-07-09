@@ -4,8 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { editIssueTool } from "../../src/tools/edit-issue.js";
 
-const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
-const labelVocabulary = ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"];
+const token = "test-token";
+const repos = [
+  {
+    repo: "joachimwedin/gh-issues-mcp",
+    labelVocabulary: ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"],
+  },
+];
+const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -44,7 +50,7 @@ describe("editIssueHandler", () => {
 
     // When
     const result = await editIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 3, title: "an updated title" },
     );
 
@@ -66,7 +72,7 @@ describe("editIssueHandler", () => {
 
     // When
     await editIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 3, title: "an updated title" },
     );
 
@@ -88,7 +94,7 @@ describe("editIssueHandler", () => {
 
     // When
     const result = await editIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 3 },
     );
 
@@ -107,7 +113,7 @@ describe("editIssueHandler", () => {
 
     // When
     const result = await editIssueTool.handler(
-      { github, auditLogPath: auditLog, labelVocabulary },
+      { token, repos, defaultRepo, auditLogPath: auditLog },
       { number: 999, title: "title" },
     );
 

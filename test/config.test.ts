@@ -18,10 +18,10 @@ describe("loadConfig", () => {
     return path;
   }
 
-  it("Given a valid config file without a label vocabulary, When loadConfig is called, Then it loads owner, repo, and port, defaulting the label vocabulary", () => {
+  it("Given a single-repo config without an explicit defaultRepo, When loadConfig is called, Then it infers the default repo and defaults its label vocabulary", () => {
     // Given
     const path = writeConfig(
-      JSON.stringify({ owner: "joachimwedin", repo: "gh-issues-mcp", port: 4319 }),
+      JSON.stringify({ repos: [{ repo: "joachimwedin/gh-issues-mcp" }], port: 4319 }),
     );
 
     // When
@@ -29,11 +29,55 @@ describe("loadConfig", () => {
 
     // Then
     expect(config).toEqual({
-      owner: "joachimwedin",
-      repo: "gh-issues-mcp",
+      repos: [{ repo: "joachimwedin/gh-issues-mcp" }],
+      defaultRepo: "joachimwedin/gh-issues-mcp",
       port: 4319,
-      labelVocabulary: ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"],
     });
+  });
+
+  it("Given a multi-repo config with an explicit defaultRepo, When loadConfig is called, Then it loads all configured repos and keeps the given default", () => {
+    // Given
+    const path = writeConfig(
+      JSON.stringify({
+        repos: [{ repo: "joachimwedin/gh-issues-mcp" }, { repo: "joachimwedin/other-repo" }],
+        defaultRepo: "joachimwedin/other-repo",
+        port: 4319,
+      }),
+    );
+
+    // When
+    const config = loadConfig(path);
+
+    // Then
+    expect(config.defaultRepo).toBe("joachimwedin/other-repo");
+    expect(config.repos).toEqual([{ repo: "joachimwedin/gh-issues-mcp" }, { repo: "joachimwedin/other-repo" }]);
+  });
+
+  it("Given a multi-repo config with no defaultRepo, When loadConfig is called, Then it throws a clear error", () => {
+    // Given
+    const path = writeConfig(
+      JSON.stringify({
+        repos: [{ repo: "joachimwedin/gh-issues-mcp" }, { repo: "joachimwedin/other-repo" }],
+        port: 4319,
+      }),
+    );
+
+    // When / Then
+    expect(() => loadConfig(path)).toThrow(/defaultRepo/i);
+  });
+
+  it("Given a defaultRepo that isn't among the configured repos, When loadConfig is called, Then it throws a clear error", () => {
+    // Given
+    const path = writeConfig(
+      JSON.stringify({
+        repos: [{ repo: "joachimwedin/gh-issues-mcp" }],
+        defaultRepo: "joachimwedin/other-repo",
+        port: 4319,
+      }),
+    );
+
+    // When / Then
+    expect(() => loadConfig(path)).toThrow(/defaultRepo/i);
   });
 
   it("Given a config file that does not exist, When loadConfig is called, Then it throws a clear error", () => {
@@ -52,32 +96,54 @@ describe("loadConfig", () => {
     expect(() => loadConfig(path)).toThrow(/invalid json/i);
   });
 
-  it("Given a config file missing a required field, When loadConfig is called, Then it throws a clear error", () => {
+  it("Given the old flat owner/repo config shape, When loadConfig is called, Then it throws a clear error pointing at the new repos shape", () => {
     // Given
-    const path = writeConfig(JSON.stringify({ owner: "joachimwedin", port: 4319 }));
+    const path = writeConfig(JSON.stringify({ owner: "joachimwedin", repo: "gh-issues-mcp", port: 4319 }));
 
     // When / Then
-    expect(() => loadConfig(path)).toThrow(/repo/i);
+    expect(() => loadConfig(path)).toThrow(/repos/);
+  });
+
+  it("Given a config file missing repos entirely, When loadConfig is called, Then it throws a clear error", () => {
+    // Given
+    const path = writeConfig(JSON.stringify({ port: 4319 }));
+
+    // When / Then
+    expect(() => loadConfig(path)).toThrow(/repos/i);
+  });
+
+  it("Given a config file with an empty repos array, When loadConfig is called, Then it throws a clear error", () => {
+    // Given
+    const path = writeConfig(JSON.stringify({ repos: [], port: 4319 }));
+
+    // When / Then
+    expect(() => loadConfig(path)).toThrow(/repos/i);
+  });
+
+  it("Given a repos entry whose repo string isn't in owner/name format, When loadConfig is called, Then it throws a clear error", () => {
+    // Given
+    const path = writeConfig(JSON.stringify({ repos: [{ repo: "not-owner-slash-name" }], port: 4319 }));
+
+    // When / Then
+    expect(() => loadConfig(path)).toThrow(/owner\/name/i);
   });
 
   it("Given a config file where port is not a number, When loadConfig is called, Then it throws a clear error", () => {
     // Given
     const path = writeConfig(
-      JSON.stringify({ owner: "joachimwedin", repo: "gh-issues-mcp", port: "not-a-number" }),
+      JSON.stringify({ repos: [{ repo: "joachimwedin/gh-issues-mcp" }], port: "not-a-number" }),
     );
 
     // When / Then
     expect(() => loadConfig(path)).toThrow(/port/i);
   });
 
-  it("Given a config file with a custom label vocabulary, When loadConfig is called, Then it loads that vocabulary", () => {
+  it("Given a repos entry with a custom label vocabulary, When loadConfig is called, Then it loads that vocabulary for that entry", () => {
     // Given
     const path = writeConfig(
       JSON.stringify({
-        owner: "joachimwedin",
-        repo: "gh-issues-mcp",
+        repos: [{ repo: "joachimwedin/gh-issues-mcp", labelVocabulary: ["bug", "enhancement"] }],
         port: 4319,
-        labelVocabulary: ["bug", "enhancement"],
       }),
     );
 
@@ -85,13 +151,16 @@ describe("loadConfig", () => {
     const config = loadConfig(path);
 
     // Then
-    expect(config.labelVocabulary).toEqual(["bug", "enhancement"]);
+    expect(config.repos[0]?.labelVocabulary).toEqual(["bug", "enhancement"]);
   });
 
-  it("Given a config file where labelVocabulary is not an array of non-empty strings, When loadConfig is called, Then it throws a clear error", () => {
+  it("Given a repos entry where labelVocabulary is not an array of non-empty strings, When loadConfig is called, Then it throws a clear error", () => {
     // Given
     const path = writeConfig(
-      JSON.stringify({ owner: "joachimwedin", repo: "gh-issues-mcp", port: 4319, labelVocabulary: "bug" }),
+      JSON.stringify({
+        repos: [{ repo: "joachimwedin/gh-issues-mcp", labelVocabulary: "bug" }],
+        port: 4319,
+      }),
     );
 
     // When / Then

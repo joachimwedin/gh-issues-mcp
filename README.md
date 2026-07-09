@@ -36,8 +36,15 @@ disk — only from the macOS Keychain, at startup.
 security add-generic-password \
   -a "$USER" \
   -s "gh-issues-mcp" \
-  -w "<your-fine-grained-PAT>"
+  -w "<your-fine-grained-PAT>" \
+  -T ""
 ```
+
+`-T ""` is required — without it, any process can silently read the token
+back via `security find-generic-password`, no prompt. With it, every
+access (including the server's own) requires clicking **Allow** on a
+system dialog. For a real password prompt instead of a click, check "Ask
+for Keychain password" on the item in Keychain Access.app.
 
 The `-s` value is the Keychain **service name**. It defaults to
 `gh-issues-mcp`; override it by setting `GH_ISSUES_MCP_KEYCHAIN_SERVICE`

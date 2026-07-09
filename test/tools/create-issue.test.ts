@@ -27,7 +27,8 @@ describe("createIssueHandler", () => {
     return join(dir, "audit.log");
   }
 
-  it("creates the issue and returns it as tool content", async () => {
+  it("Given GitHub accepts the new issue, When create_issue is called, Then it returns the created issue as tool content", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -41,17 +42,20 @@ describe("createIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body" },
     );
 
+    // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload).toEqual({ number: 11, title: "a new issue", state: "open", body: "issue body", labels: [] });
   });
 
-  it("appends a successful entry to the audit log with the title, body, and labels as args", async () => {
+  it("Given GitHub accepts the new issue, When create_issue is called with labels, Then it appends a successful entry to the audit log with the title, body, and labels as args", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -67,11 +71,13 @@ describe("createIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
+    // When
     await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body", labels: ["ready-for-agent"] },
     );
 
+    // Then
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
       tool: "create_issue",
@@ -81,33 +87,39 @@ describe("createIssueHandler", () => {
     });
   });
 
-  it("rejects a label outside the configured vocabulary without making any GitHub API call", async () => {
+  it("Given a label outside the configured vocabulary, When create_issue is called, Then it returns an error and does not call the GitHub API", async () => {
+    // Given
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const auditLog = auditLogPath();
 
+    // When
     const result = await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body", labels: ["typo-label"] },
     );
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("typo-label");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns the real GitHub status and message as an error result on failure", async () => {
+  it("Given GitHub rejects the new issue, When create_issue is called, Then it returns the real GitHub status and message as an error result", async () => {
+    // Given
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(jsonResponse({ message: "Validation Failed" }, 422)),
     );
     const auditLog = auditLogPath();
 
+    // When
     const result = await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body" },
     );
 
+    // Then
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("422");
     expect((result.content[0] as { text: string }).text).toContain("Validation Failed");

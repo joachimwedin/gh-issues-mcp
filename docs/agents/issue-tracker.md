@@ -16,6 +16,11 @@ it to target the server's default repo. `list_repos()` returns the full
 allowlist plus each repo's effective label vocabulary — call it first when
 you don't already know the target repo or its vocabulary.
 
+This repo's tracker repo is `joachimwedin/gh-issues-mcp` (see CLAUDE.md).
+Pass `repo: "joachimwedin/gh-issues-mcp"` explicitly on every call rather
+than omitting it — the server's allowlist also includes other repos, and
+its configured default may point at one of those instead.
+
 - **Discover repos**: `list_repos()` — no params; returns
   `[{ repo, labelVocabulary }]` for every repo in the allowlist.
 - **Create an issue**: `create_issue(title, body, labels?, repo?)` — creates
@@ -44,10 +49,9 @@ you don't already know the target repo or its vocabulary.
   existing issue's title and/or body. At least one of `title`/`body` must be
   given.
 
-When a task spans more than one repo (or you're not sure which repo is the
-default), pass `repo` explicitly on each call rather than relying on the
-fallback — the fallback exists for the common single-repo case, not as a way
-to avoid specifying which repo a multi-repo task is operating on.
+When a task spans more than one repo, don't rely on a single resolved
+`repo` for the whole task — pass it explicitly per call, naming whichever
+repo that specific call actually targets.
 
 ## Pull requests as a triage surface
 

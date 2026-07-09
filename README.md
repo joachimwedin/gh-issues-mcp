@@ -9,7 +9,12 @@ A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub
 
 ### Quickstart
 
-1. **Create a token.** [Create a fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) scoped to the target repo(s) — every repo you'll list in `repos` below — with **Issues: Read and write** and **Metadata: Read-only** — nothing else. See [Token scope](#token-scope) for why.
+1. **Create a token.** [Create a fine-grained personal access token](https://github.com/settings/personal-access-tokens/new), scoped to every repo you plan to track (the repos you'll list under `repos` in step 3). Grant only:
+
+   - **Issues**: Read and write
+   - **Metadata**: Read-only
+
+   Nothing else — see [Token scope](#token-scope) for why.
 
 2. **Store it in the Keychain** — the server only ever reads the token from here, never from an env var or a file:
 
@@ -23,17 +28,16 @@ A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub
 
    `-w` with no value prompts for the token instead of taking it as an argument, so it never lands in your shell history. The first time a process reads it back, macOS prompts you to click **Allow**. See [Keychain storage](#keychain-storage) for what `-T ""` does and how to replace a token later.
 
-3. **Point it at your repo(s).** Create `~/.config/gh-issues-mcp/config.json`. `repos` is an allowlist — every repo a tool call may target — and `defaultRepo` is which one a call uses when it omits the `repo` parameter. Swap both for your target(s):
+3. **Point it at your repo.** Create `~/.config/gh-issues-mcp/config.json`:
 
    ```json
    {
      "repos": [{ "repo": "joachimwedin/gh-issues-mcp" }],
-     "defaultRepo": "joachimwedin/gh-issues-mcp",
      "port": 4319
    }
    ```
 
-   `defaultRepo` may be omitted when `repos` has exactly one entry. See [Configuration](#configuration) for the full schema, including per-repo label vocabulary overrides.
+   `repos` is an allowlist — every repo a tool call may target — and with one entry it's the implicit default. To track more than one repo, list them all here and add `defaultRepo` to pick which one a call uses when it omits the `repo` parameter. See [Configuration](#configuration) for the full schema, including per-repo label vocabulary overrides.
 
 4. **Install and start the server**, then confirm it picked up the token:
 
@@ -105,7 +109,7 @@ The server has no command-line flags — it reads runtime settings from environm
 
 | Option | Description |
 |--------|-------------|
-| `GH_ISSUES_MCP_KEYCHAIN_SERVICE` | Keychain service name to read the token from. Default `gh-issues-mcp`. Override to run multiple instances (multiple repos) side by side. |
+| `GH_ISSUES_MCP_KEYCHAIN_SERVICE` | Keychain service name to read the token from. Default `gh-issues-mcp`. |
 | `GH_ISSUES_MCP_CONFIG_PATH` | Path to the JSON config file. Default `~/.config/gh-issues-mcp/config.json`. |
 | `GH_ISSUES_MCP_AUDIT_LOG_PATH` | Path to the JSON-lines audit log. Default `~/.local/state/gh-issues-mcp/audit.log`. |
 
@@ -145,7 +149,7 @@ The old flat `owner`/`repo` shape is no longer supported; the server refuses to 
 
 ## Security
 
-gh-issues-mcp is designed so that a compromised server process, or a bug in a tool handler, cannot do more damage than commenting on or labeling issues in one repository.
+gh-issues-mcp is designed so that a compromised server process, or a bug in a tool handler, cannot do more damage than commenting on or labeling issues.
 
 <details open id="token-scope">
 <summary><b>Token scope</b></summary>

@@ -3,6 +3,7 @@ import { closeIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
 
 export interface CloseIssueInput {
+  repo?: string;
   number: number;
   comment: string;
 }
@@ -13,6 +14,7 @@ export interface CloseIssueInput {
  * runs — closing without an explanation is structurally impossible.
  */
 export const closeIssueInputSchema = {
+  repo: z.string().optional(),
   number: z.number().int(),
   comment: z.string(),
 };
@@ -20,7 +22,10 @@ export const closeIssueInputSchema = {
 export const closeIssueTool = defineTool<CloseIssueInput>({
   name: "close_issue",
   description:
-    "Post a comment and close the given issue. A comment is required, so an issue can never be closed without an explanation.",
+    "Post a comment and close the given issue. A comment is required, so an issue can never be closed without an explanation. Defaults to the configured default repo when `repo` is omitted.",
   inputSchema: closeIssueInputSchema,
-  call: (context, input) => closeIssue(context.github, input),
+  async call(context, input) {
+    const issue = await closeIssue(context.github, input);
+    return { ...issue, repo: context.repo };
+  },
 });

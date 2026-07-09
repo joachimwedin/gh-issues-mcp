@@ -3,12 +3,14 @@ import { editIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
 
 export interface EditIssueInput {
+  repo?: string;
   number: number;
   title?: string;
   body?: string;
 }
 
 export const editIssueInputSchema = {
+  repo: z.string().optional(),
   number: z.number().int(),
   title: z.string().optional(),
   body: z.string().optional(),
@@ -16,7 +18,8 @@ export const editIssueInputSchema = {
 
 export const editIssueTool = defineTool<EditIssueInput>({
   name: "edit_issue",
-  description: "Update an issue's title and/or body. At least one of title or body must be given.",
+  description:
+    "Update an issue's title and/or body. At least one of title or body must be given. Defaults to the configured default repo when `repo` is omitted.",
   inputSchema: editIssueInputSchema,
   validate(input) {
     if (input.title !== undefined || input.body !== undefined) return undefined;
@@ -26,5 +29,8 @@ export const editIssueTool = defineTool<EditIssueInput>({
       content: [{ type: "text", text: "At least one of title or body must be given." }],
     };
   },
-  call: (context, input) => editIssue(context.github, input),
+  async call(context, input) {
+    const issue = await editIssue(context.github, input);
+    return { ...issue, repo: context.repo };
+  },
 });

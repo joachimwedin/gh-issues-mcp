@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { closeIssueTool, closeIssueInputSchema } from "../../src/tools/close-issue.js";
+import type { McpToolContext } from "../../src/tools/context.js";
 
-const token = "test-token";
-const repos = [{ repo: "joachimwedin/gh-issues-mcp" }];
+const repos = [{ repo: "joachimwedin/gh-issues-mcp" }, { repo: "joachimwedin/other-repo" }];
 const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -24,12 +24,12 @@ describe("closeIssueHandler", () => {
     if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
-  function auditLogPath(): string {
+  function context(): McpToolContext {
     dir = mkdtempSync(join(tmpdir(), "gh-issues-mcp-close-issue-test-"));
-    return join(dir, "audit.log");
+    return { token: "test-token", repos, defaultRepo, auditLogPath: join(dir, "audit.log") };
   }
 
-  it("Given GitHub accepts the comment and close, When close_issue is called, Then it posts the comment, closes the issue, and returns the updated issue as tool content", async () => {
+  it("Given GitHub accepts the comment and close, When close_issue is called with no repo, Then it posts the comment, closes the issue, and returns the updated issue tagged with the default repo", async () => {
     // Given
     vi.stubGlobal(
       "fetch",
@@ -43,21 +43,68 @@ describe("closeIssueHandler", () => {
         throw new Error(`unexpected call: ${url}`);
       }),
     );
-    const auditLog = auditLogPath();
 
     // When
-    const result = await closeIssueTool.handler(
-      { token, repos, defaultRepo, auditLogPath: auditLog },
-      { number: 3, comment: "closing this out" },
-    );
+    const result = await closeIssueTool.handler(context(), { number: 3, comment: "closing this out" });
 
     // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
-    expect(payload).toEqual({ number: 3, title: "an issue", state: "closed", body: "body", labels: [] });
+    expect(payload).toEqual({
+      number: 3,
+      title: "an issue",
+      state: "closed",
+      body: "body",
+      labels: [],
+      repo: "joachimwedin/gh-issues-mcp",
+    });
   });
 
-  it("Given GitHub accepts the comment and close, When close_issue is called, Then it appends a successful entry to the audit log with the number and comment as args", async () => {
+  it("Given a second allowlisted repo, When close_issue is called with that repo explicitly, Then it calls GitHub for that repo and tags the result with it", async () => {
+    // Given
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith("/comments")) return Promise.resolve(jsonResponse({ body: "closing" }));
+      if (init?.method === "PATCH") {
+        return Promise.resolve(jsonResponse({ number: 7, title: "other", state: "closed", body: null, labels: [] }));
+      }
+      throw new Error(`unexpected call: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    const result = await closeIssueTool.handler(context(), {
+      repo: "joachimwedin/other-repo",
+      number: 7,
+      comment: "closing",
+    });
+
+    // Then
+    expect(result.isError).toBeUndefined();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload).toMatchObject({ number: 7, repo: "joachimwedin/other-repo" });
+    const [calledUrl] = fetchMock.mock.calls[0] as [string];
+    expect(calledUrl).toContain("/repos/joachimwedin/other-repo/issues");
+  });
+
+  it("Given a repo outside the configured allowlist, When close_issue is called with that repo, Then it returns an error result without calling GitHub", async () => {
+    // Given
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    const result = await closeIssueTool.handler(context(), {
+      repo: "someone-else/unrelated-repo",
+      number: 3,
+      comment: "closing",
+    });
+
+    // Then
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as { text: string }).text).toContain("someone-else/unrelated-repo");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Given GitHub accepts the comment and close, When close_issue is called, Then it appends a successful entry with the resolved repo to the audit log with the number and comment as args", async () => {
     // Given
     vi.stubGlobal(
       "fetch",
@@ -69,18 +116,19 @@ describe("closeIssueHandler", () => {
         throw new Error(`unexpected call: ${url}`);
       }),
     );
-    const auditLog = auditLogPath();
+    const ctx = context();
 
     // When
-    await closeIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3, comment: "closing" });
+    await closeIssueTool.handler(ctx, { number: 3, comment: "closing" });
 
     // Then
-    const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
+    const entry = JSON.parse(readFileSync(ctx.auditLogPath, "utf8").trim());
     expect(entry).toMatchObject({
       tool: "close_issue",
       args: { number: 3, comment: "closing" },
       success: true,
       githubStatus: 200,
+      repo: "joachimwedin/gh-issues-mcp",
     });
   });
 
@@ -90,10 +138,9 @@ describe("closeIssueHandler", () => {
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
-    const auditLog = auditLogPath();
 
     // When
-    const result = await closeIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, comment: "closing" });
+    const result = await closeIssueTool.handler(context(), { number: 999, comment: "closing" });
 
     // Then
     expect(result.isError).toBe(true);
@@ -107,13 +154,13 @@ describe("closeIssueHandler", () => {
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
-    const auditLog = auditLogPath();
+    const ctx = context();
 
     // When
-    await closeIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, comment: "closing" });
+    await closeIssueTool.handler(ctx, { number: 999, comment: "closing" });
 
     // Then
-    const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
+    const entry = JSON.parse(readFileSync(ctx.auditLogPath, "utf8").trim());
     expect(entry).toMatchObject({ tool: "close_issue", success: false, githubStatus: 404 });
   });
 

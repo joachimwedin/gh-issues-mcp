@@ -3,9 +3,9 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commentIssueTool } from "../../src/tools/comment-issue.js";
+import type { McpToolContext } from "../../src/tools/context.js";
 
-const token = "test-token";
-const repos = [{ repo: "joachimwedin/gh-issues-mcp" }];
+const repos = [{ repo: "joachimwedin/gh-issues-mcp" }, { repo: "joachimwedin/other-repo" }];
 const defaultRepo = "joachimwedin/gh-issues-mcp";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -23,40 +23,78 @@ describe("commentIssueHandler", () => {
     if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
-  function auditLogPath(): string {
+  function context(): McpToolContext {
     dir = mkdtempSync(join(tmpdir(), "gh-issues-mcp-comment-issue-test-"));
-    return join(dir, "audit.log");
+    return { token: "test-token", repos, defaultRepo, auditLogPath: join(dir, "audit.log") };
   }
 
-  it("Given GitHub accepts the comment, When comment_issue is called, Then it posts the comment and returns it as tool content", async () => {
+  it("Given GitHub accepts the comment, When comment_issue is called with no repo, Then it posts the comment and returns it tagged with the default repo", async () => {
     // Given
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ body: "a comment" }))));
-    const auditLog = auditLogPath();
 
     // When
-    const result = await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3, body: "a comment" });
+    const result = await commentIssueTool.handler(context(), { number: 3, body: "a comment" });
 
     // Then
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
-    expect(payload).toEqual({ body: "a comment" });
+    expect(payload).toEqual({ body: "a comment", repo: "joachimwedin/gh-issues-mcp" });
   });
 
-  it("Given GitHub accepts the comment, When comment_issue is called, Then it appends a successful entry to the audit log with the number and body as args", async () => {
+  it("Given a second allowlisted repo, When comment_issue is called with that repo explicitly, Then it calls GitHub for that repo and tags the result with it", async () => {
     // Given
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ body: "a comment" }))));
-    const auditLog = auditLogPath();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ body: "a comment" }));
+    vi.stubGlobal("fetch", fetchMock);
 
     // When
-    await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 3, body: "a comment" });
+    const result = await commentIssueTool.handler(context(), {
+      repo: "joachimwedin/other-repo",
+      number: 3,
+      body: "a comment",
+    });
 
     // Then
-    const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
+    expect(result.isError).toBeUndefined();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload).toEqual({ body: "a comment", repo: "joachimwedin/other-repo" });
+    const [calledUrl] = fetchMock.mock.calls[0] as [string];
+    expect(calledUrl).toContain("/repos/joachimwedin/other-repo/issues");
+  });
+
+  it("Given a repo outside the configured allowlist, When comment_issue is called with that repo, Then it returns an error result without calling GitHub", async () => {
+    // Given
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    const result = await commentIssueTool.handler(context(), {
+      repo: "someone-else/unrelated-repo",
+      number: 3,
+      body: "a comment",
+    });
+
+    // Then
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as { text: string }).text).toContain("someone-else/unrelated-repo");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Given GitHub accepts the comment, When comment_issue is called, Then it appends a successful entry with the resolved repo to the audit log with the number and body as args", async () => {
+    // Given
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ body: "a comment" }))));
+    const ctx = context();
+
+    // When
+    await commentIssueTool.handler(ctx, { number: 3, body: "a comment" });
+
+    // Then
+    const entry = JSON.parse(readFileSync(ctx.auditLogPath, "utf8").trim());
     expect(entry).toMatchObject({
       tool: "comment_issue",
       args: { number: 3, body: "a comment" },
       success: true,
       githubStatus: 200,
+      repo: "joachimwedin/gh-issues-mcp",
     });
   });
 
@@ -66,10 +104,9 @@ describe("commentIssueHandler", () => {
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
-    const auditLog = auditLogPath();
 
     // When
-    const result = await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, body: "a comment" });
+    const result = await commentIssueTool.handler(context(), { number: 999, body: "a comment" });
 
     // Then
     expect(result.isError).toBe(true);
@@ -83,13 +120,13 @@ describe("commentIssueHandler", () => {
       "fetch",
       vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))),
     );
-    const auditLog = auditLogPath();
+    const ctx = context();
 
     // When
-    await commentIssueTool.handler({ token, repos, defaultRepo, auditLogPath: auditLog }, { number: 999, body: "a comment" });
+    await commentIssueTool.handler(ctx, { number: 999, body: "a comment" });
 
     // Then
-    const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
+    const entry = JSON.parse(readFileSync(ctx.auditLogPath, "utf8").trim());
     expect(entry).toMatchObject({ tool: "comment_issue", success: false, githubStatus: 404 });
   });
 });

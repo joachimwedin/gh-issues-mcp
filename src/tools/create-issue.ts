@@ -3,12 +3,14 @@ import { createIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
 
 export interface CreateIssueInput {
+  repo?: string;
   title: string;
   body: string;
   labels?: string[];
 }
 
 export const createIssueInputSchema = {
+  repo: z.string().optional(),
   title: z.string(),
   body: z.string(),
   labels: z.array(z.string()).optional(),
@@ -16,7 +18,8 @@ export const createIssueInputSchema = {
 
 export const createIssueTool = defineTool<CreateIssueInput>({
   name: "create_issue",
-  description: "Create a new top-level issue in the configured repo.",
+  description:
+    "Create a new top-level issue in a repository. Defaults to the configured default repo when `repo` is omitted.",
   inputSchema: createIssueInputSchema,
   validate(input, context) {
     const invalid = (input.labels ?? []).filter((label) => !context.labelVocabulary.includes(label));
@@ -33,5 +36,8 @@ export const createIssueTool = defineTool<CreateIssueInput>({
       ],
     };
   },
-  call: (context, input) => createIssue(context.github, input),
+  async call(context, input) {
+    const issue = await createIssue(context.github, input);
+    return { ...issue, repo: context.repo };
+  },
 });

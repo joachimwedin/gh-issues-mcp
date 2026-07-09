@@ -3,18 +3,24 @@ import { commentIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
 
 export interface CommentIssueInput {
+  repo?: string;
   number: number;
   body: string;
 }
 
 export const commentIssueInputSchema = {
+  repo: z.string().optional(),
   number: z.number().int(),
   body: z.string(),
 };
 
 export const commentIssueTool = defineTool<CommentIssueInput>({
   name: "comment_issue",
-  description: "Post a comment to the given issue.",
+  description:
+    "Post a comment to the given issue. Defaults to the configured default repo when `repo` is omitted.",
   inputSchema: commentIssueInputSchema,
-  call: (context, input) => commentIssue(context.github, input),
+  async call(context, input) {
+    const comment = await commentIssue(context.github, input);
+    return { ...comment, repo: context.repo };
+  },
 });

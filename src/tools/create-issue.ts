@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { createIssue } from "../github.js";
 import { defineTool } from "./define-tool.js";
-import type { McpToolContext } from "./context.js";
 
 export interface CreateIssueInput {
   title: string;
@@ -19,7 +18,7 @@ export const createIssueTool = defineTool<CreateIssueInput>({
   name: "create_issue",
   description: "Create a new top-level issue in the configured repo.",
   inputSchema: createIssueInputSchema,
-  validate(input, context: McpToolContext) {
+  validate(input, context) {
     const invalid = (input.labels ?? []).filter((label) => !context.labelVocabulary.includes(label));
 
     if (invalid.length === 0) return undefined;

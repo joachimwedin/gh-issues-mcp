@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { editLabels } from "../github.js";
 import { defineTool } from "./define-tool.js";
-import type { McpToolContext } from "./context.js";
 
 export interface EditLabelsInput {
   number: number;
@@ -23,7 +22,7 @@ export const editLabelsTool = defineTool<EditLabelsInput>({
   name: "edit_labels",
   description: "Add and/or remove labels on the given issue, restricted to the configured label vocabulary.",
   inputSchema: editLabelsInputSchema,
-  validate(input, context: McpToolContext) {
+  validate(input, context) {
     const invalid = [
       ...invalidLabels(input.add, context.labelVocabulary),
       ...invalidLabels(input.remove, context.labelVocabulary),

@@ -363,9 +363,7 @@ describe("createSubIssue", () => {
 
     await expect(
       createSubIssue(config, { parentNumber: 999, title: "title", body: "body" }),
-    ).rejects.toMatchObject(
-      new GitHubApiError(404, "Not Found"),
-    );
+    ).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/999");
@@ -385,9 +383,7 @@ describe("createSubIssue", () => {
 
     await expect(
       createSubIssue(config, { parentNumber: 3, title: "title", body: "body" }),
-    ).rejects.toMatchObject(
-      new GitHubApiError(422, "Validation Failed"),
-    );
+    ).rejects.toMatchObject(new GitHubApiError(422, "Validation Failed"));
   });
 
   it("throws a GitHubApiError with the real status and message when linking to the parent fails", async () => {
@@ -407,9 +403,7 @@ describe("createSubIssue", () => {
 
     await expect(
       createSubIssue(config, { parentNumber: 3, title: "title", body: "body" }),
-    ).rejects.toMatchObject(
-      new GitHubApiError(500, "Server Error"),
-    );
+    ).rejects.toMatchObject(new GitHubApiError(500, "Server Error"));
   });
 });
 

@@ -73,6 +73,7 @@ describe("MCP server end-to-end over Streamable HTTP", () => {
       "comment_issue",
       "create_issue",
       "create_sub_issue",
+      "edit_issue",
       "edit_labels",
       "list_issues",
       "view_issue",

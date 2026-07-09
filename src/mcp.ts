@@ -6,6 +6,7 @@ import { registerCloseIssueTool } from "./tools/close-issue.js";
 import { registerEditLabelsTool } from "./tools/edit-labels.js";
 import { registerCreateSubIssueTool } from "./tools/create-sub-issue.js";
 import { registerCreateIssueTool } from "./tools/create-issue.js";
+import { registerEditIssueTool } from "./tools/edit-issue.js";
 import type { McpToolContext } from "./tools/context.js";
 
 export type { McpToolContext };
@@ -23,6 +24,7 @@ export function createMcpServer(context: McpToolContext): McpServer {
   registerEditLabelsTool(server, context);
   registerCreateSubIssueTool(server, context);
   registerCreateIssueTool(server, context);
+  registerEditIssueTool(server, context);
 
   return server;
 }

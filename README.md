@@ -155,6 +155,9 @@ project's committed config. For example, in Claude Code's user config:
 - `create_issue(title, body, labels?)` — creates a new top-level issue in the
   configured repo. Only labels from the configured vocabulary are allowed;
   anything else is rejected locally, before any GitHub API call is made.
+- `edit_issue(number, title?, body?)` — updates an issue's title and/or
+  body. At least one of `title`/`body` must be given; a call with neither is
+  rejected locally, before any GitHub API call is made.
 
 ## Audit log
 

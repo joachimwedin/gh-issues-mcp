@@ -254,6 +254,29 @@ export async function createSubIssue(
 }
 
 /**
+ * Updates an existing issue's title and/or body. Only the provided fields
+ * are sent in the PATCH body, mirroring createIssue's omit-when-undefined
+ * pattern rather than GitHub's own "send null to clear" semantics.
+ */
+export async function editIssue(
+  config: GitHubClientConfig,
+  number: number,
+  title?: string,
+  body?: string,
+): Promise<GitHubIssue> {
+  const patch: Record<string, string> = {};
+  if (title !== undefined) patch.title = title;
+  if (body !== undefined) patch.body = body;
+
+  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${number}`, {
+    method: "PATCH",
+    body: patch,
+  })) as RawIssue;
+
+  return normalizeIssue(raw);
+}
+
+/**
  * Creates a new top-level issue in the configured repo.
  */
 export async function createIssue(

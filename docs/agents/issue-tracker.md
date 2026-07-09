@@ -29,9 +29,9 @@ this repo) rather than improvising another way to do it.
 - **Create a sub-issue**: `create_sub_issue(parent_number, title, body)` —
   creates a new issue and links it to the parent via GitHub's sub-issues API
   in one call.
-
-There is currently no tool for editing an issue's title/body after creation.
-That remains a known gap.
+- **Edit an issue**: `edit_issue(number, title?, body?)` — updates an
+  existing issue's title and/or body. At least one of `title`/`body` must be
+  given.
 
 ## Pull requests as a triage surface
 

@@ -7,6 +7,7 @@ import {
   editLabels,
   createSubIssue,
   createIssue,
+  editIssue,
   GitHubApiError,
 } from "../src/github.js";
 
@@ -448,5 +449,58 @@ describe("createIssue", () => {
     await expect(createIssue(config, "title", "body")).rejects.toMatchObject(
       new GitHubApiError(422, "Validation Failed"),
     );
+  });
+});
+
+describe("editIssue", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("PATCHes only the given title and returns the updated issue", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ number: 3, title: "an updated title", state: "open", body: "original body", labels: [] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const issue = await editIssue(config, 3, "an updated title");
+
+    expect(issue).toEqual({ number: 3, title: "an updated title", state: "open", body: "original body", labels: [] });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.github.com/repos/joachimwedin/gh-issues-mcp/issues/3");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ title: "an updated title" });
+  });
+
+  it("PATCHes only the given body when title is omitted", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ number: 3, title: "original title", state: "open", body: "an updated body", labels: [] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await editIssue(config, 3, undefined, "an updated body");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ body: "an updated body" });
+  });
+
+  it("PATCHes both title and body when both are given", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ number: 3, title: "new title", state: "open", body: "new body", labels: [] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await editIssue(config, 3, "new title", "new body");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ title: "new title", body: "new body" });
+  });
+
+  it("throws a GitHubApiError with the real status and message when the issue doesn't exist", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(editIssue(config, 999, "title")).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
   });
 });

@@ -14,5 +14,5 @@ export const viewIssueTool = defineTool<ViewIssueInput>({
   name: "view_issue",
   description: "View a single issue's body, labels, and full comment history.",
   inputSchema: viewIssueInputSchema,
-  call: (context, input) => viewIssue(context.github, input.number),
+  call: (context, input) => viewIssue(context.github, input),
 });

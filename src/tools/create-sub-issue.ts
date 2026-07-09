@@ -18,5 +18,6 @@ export const createSubIssueTool = defineTool<CreateSubIssueInput>({
   name: "create_sub_issue",
   description: "Create a new issue and link it as a sub-issue of the given parent issue.",
   inputSchema: createSubIssueInputSchema,
-  call: (context, input) => createSubIssue(context.github, input.parent_number, input.title, input.body),
+  call: (context, input) =>
+    createSubIssue(context.github, { parentNumber: input.parent_number, title: input.title, body: input.body }),
 });

@@ -137,7 +137,7 @@ describe("viewIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const issue = await viewIssue(config, 3);
+    const issue = await viewIssue(config, { number: 3 });
 
     expect(issue).toEqual({
       number: 3,
@@ -153,7 +153,7 @@ describe("viewIssue", () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404)));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(viewIssue(config, 999)).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
+    await expect(viewIssue(config, { number: 999 })).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
   });
 });
 
@@ -166,7 +166,7 @@ describe("commentIssue", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ body: "a new comment" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const comment = await commentIssue(config, 3, "a new comment");
+    const comment = await commentIssue(config, { number: 3, body: "a new comment" });
 
     expect(comment).toEqual({ body: "a new comment" });
 
@@ -181,7 +181,9 @@ describe("commentIssue", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(commentIssue(config, 999, "hi")).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
+    await expect(commentIssue(config, { number: 999, body: "hi" })).rejects.toMatchObject(
+      new GitHubApiError(404, "Not Found"),
+    );
   });
 });
 
@@ -204,7 +206,7 @@ describe("closeIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const issue = await closeIssue(config, 3, "closing this out");
+    const issue = await closeIssue(config, { number: 3, comment: "closing this out" });
 
     expect(issue).toEqual({ number: 3, title: "an issue", state: "closed", body: "body", labels: ["bug"] });
 
@@ -219,7 +221,9 @@ describe("closeIssue", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(closeIssue(config, 999, "closing")).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
+    await expect(closeIssue(config, { number: 999, comment: "closing" })).rejects.toMatchObject(
+      new GitHubApiError(404, "Not Found"),
+    );
   });
 });
 
@@ -234,7 +238,7 @@ describe("editLabels", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const labels = await editLabels(config, 3, ["needs-info"], []);
+    const labels = await editLabels(config, { number: 3, add: ["needs-info"], remove: [] });
 
     expect(labels).toEqual(["ready-for-agent", "needs-info"]);
 
@@ -252,7 +256,7 @@ describe("editLabels", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const labels = await editLabels(config, 3, [], ["needs-triage", "needs-info"]);
+    const labels = await editLabels(config, { number: 3, add: [], remove: ["needs-triage", "needs-info"] });
 
     expect(labels).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -267,7 +271,7 @@ describe("editLabels", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(editLabels(config, 999, ["needs-info"], [])).rejects.toMatchObject(
+    await expect(editLabels(config, { number: 999, add: ["needs-info"], remove: [] })).rejects.toMatchObject(
       new GitHubApiError(404, "Not Found"),
     );
   });
@@ -284,7 +288,7 @@ describe("editLabels", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const labels = await editLabels(config, 3, [], []);
+    const labels = await editLabels(config, { number: 3, add: [], remove: [] });
 
     expect(labels).toEqual(["bug"]);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit | undefined];
@@ -324,7 +328,7 @@ describe("createSubIssue", () => {
     const fetchMock = stubHappyPath();
     vi.stubGlobal("fetch", fetchMock);
 
-    const issue = await createSubIssue(config, 3, "a sub-issue", "sub body");
+    const issue = await createSubIssue(config, { parentNumber: 3, title: "a sub-issue", body: "sub body" });
 
     expect(issue).toEqual({ number: 10, title: "a sub-issue", state: "open", body: "sub body", labels: [] });
 
@@ -357,7 +361,9 @@ describe("createSubIssue", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(createSubIssue(config, 999, "title", "body")).rejects.toMatchObject(
+    await expect(
+      createSubIssue(config, { parentNumber: 999, title: "title", body: "body" }),
+    ).rejects.toMatchObject(
       new GitHubApiError(404, "Not Found"),
     );
 
@@ -377,7 +383,9 @@ describe("createSubIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(createSubIssue(config, 3, "title", "body")).rejects.toMatchObject(
+    await expect(
+      createSubIssue(config, { parentNumber: 3, title: "title", body: "body" }),
+    ).rejects.toMatchObject(
       new GitHubApiError(422, "Validation Failed"),
     );
   });
@@ -397,7 +405,9 @@ describe("createSubIssue", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(createSubIssue(config, 3, "title", "body")).rejects.toMatchObject(
+    await expect(
+      createSubIssue(config, { parentNumber: 3, title: "title", body: "body" }),
+    ).rejects.toMatchObject(
       new GitHubApiError(500, "Server Error"),
     );
   });
@@ -417,7 +427,7 @@ describe("createIssue", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const issue = await createIssue(config, "a new issue", "issue body");
+    const issue = await createIssue(config, { title: "a new issue", body: "issue body" });
 
     expect(issue).toEqual({ number: 11, title: "a new issue", state: "open", body: "issue body", labels: [] });
 
@@ -436,7 +446,7 @@ describe("createIssue", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await createIssue(config, "a new issue", "issue body", ["bug"]);
+    await createIssue(config, { title: "a new issue", body: "issue body", labels: ["bug"] });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ title: "a new issue", body: "issue body", labels: ["bug"] });
@@ -446,7 +456,7 @@ describe("createIssue", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Validation Failed" }, 422));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(createIssue(config, "title", "body")).rejects.toMatchObject(
+    await expect(createIssue(config, { title: "title", body: "body" })).rejects.toMatchObject(
       new GitHubApiError(422, "Validation Failed"),
     );
   });
@@ -463,7 +473,7 @@ describe("editIssue", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const issue = await editIssue(config, 3, "an updated title");
+    const issue = await editIssue(config, { number: 3, title: "an updated title" });
 
     expect(issue).toEqual({ number: 3, title: "an updated title", state: "open", body: "original body", labels: [] });
 
@@ -479,7 +489,7 @@ describe("editIssue", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await editIssue(config, 3, undefined, "an updated body");
+    await editIssue(config, { number: 3, body: "an updated body" });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ body: "an updated body" });
@@ -491,7 +501,7 @@ describe("editIssue", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await editIssue(config, 3, "new title", "new body");
+    await editIssue(config, { number: 3, title: "new title", body: "new body" });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ title: "new title", body: "new body" });
@@ -501,6 +511,8 @@ describe("editIssue", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Not Found" }, 404));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(editIssue(config, 999, "title")).rejects.toMatchObject(new GitHubApiError(404, "Not Found"));
+    await expect(editIssue(config, { number: 999, title: "title" })).rejects.toMatchObject(
+      new GitHubApiError(404, "Not Found"),
+    );
   });
 });

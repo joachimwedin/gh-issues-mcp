@@ -16,5 +16,5 @@ export const commentIssueTool = defineTool<CommentIssueInput>({
   name: "comment_issue",
   description: "Post a comment to the given issue.",
   inputSchema: commentIssueInputSchema,
-  call: (context, input) => commentIssue(context.github, input.number, input.body),
+  call: (context, input) => commentIssue(context.github, input),
 });

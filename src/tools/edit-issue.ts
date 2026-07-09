@@ -26,5 +26,5 @@ export const editIssueTool = defineTool<EditIssueInput>({
       content: [{ type: "text", text: "At least one of title or body must be given." }],
     };
   },
-  call: (context, input) => editIssue(context.github, input.number, input.title, input.body),
+  call: (context, input) => editIssue(context.github, input),
 });

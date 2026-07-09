@@ -48,6 +48,11 @@ interface GitHubRequestOptions {
   body?: unknown;
 }
 
+/** Builds a `/repos/{owner}/{repo}/issues[/segment...]` path, the shape shared by every issues endpoint. */
+function issuesPath(config: GitHubClientConfig, ...segments: (string | number)[]): string {
+  return [`/repos/${config.owner}/${config.repo}/issues`, ...segments].join("/");
+}
+
 async function githubRequest(
   config: GitHubClientConfig,
   path: string,
@@ -120,21 +125,18 @@ export async function listIssues(
   params.set("state", filters.state ?? "open");
   if (filters.labels?.length) params.set("labels", filters.labels.join(","));
 
-  const raw = (await githubRequest(
-    config,
-    `/repos/${config.owner}/${config.repo}/issues?${params.toString()}`,
-  )) as RawIssue[];
+  const raw = (await githubRequest(config, `${issuesPath(config)}?${params.toString()}`)) as RawIssue[];
 
   return raw.filter((issue) => !("pull_request" in issue)).map(normalizeIssue);
 }
 
-export async function viewIssue(config: GitHubClientConfig, number: number): Promise<GitHubIssueDetail> {
+export async function viewIssue(
+  config: GitHubClientConfig,
+  { number }: { number: number },
+): Promise<GitHubIssueDetail> {
   const [issue, comments] = await Promise.all([
-    githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${number}`) as Promise<RawIssue>,
-    githubRequest(
-      config,
-      `/repos/${config.owner}/${config.repo}/issues/${number}/comments`,
-    ) as Promise<GitHubComment[]>,
+    githubRequest(config, issuesPath(config, number)) as Promise<RawIssue>,
+    githubRequest(config, issuesPath(config, number, "comments")) as Promise<GitHubComment[]>,
   ]);
 
   return {
@@ -145,14 +147,12 @@ export async function viewIssue(config: GitHubClientConfig, number: number): Pro
 
 export async function commentIssue(
   config: GitHubClientConfig,
-  number: number,
-  body: string,
+  { number, body }: { number: number; body: string },
 ): Promise<GitHubComment> {
-  const raw = (await githubRequest(
-    config,
-    `/repos/${config.owner}/${config.repo}/issues/${number}/comments`,
-    { method: "POST", body: { body } },
-  )) as GitHubComment;
+  const raw = (await githubRequest(config, issuesPath(config, number, "comments"), {
+    method: "POST",
+    body: { body },
+  })) as GitHubComment;
 
   return { body: raw.body };
 }
@@ -163,12 +163,11 @@ export async function commentIssue(
  */
 export async function closeIssue(
   config: GitHubClientConfig,
-  number: number,
-  comment: string,
+  { number, comment }: { number: number; comment: string },
 ): Promise<GitHubIssue> {
-  await commentIssue(config, number, comment);
+  await commentIssue(config, { number, body: comment });
 
-  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${number}`, {
+  const raw = (await githubRequest(config, issuesPath(config, number), {
     method: "PATCH",
     body: { state: "closed" },
   })) as RawIssue;
@@ -188,33 +187,25 @@ interface RawLabelObject {
  */
 export async function editLabels(
   config: GitHubClientConfig,
-  number: number,
-  add: string[],
-  remove: string[],
+  { number, add = [], remove = [] }: { number: number; add?: string[]; remove?: string[] },
 ): Promise<string[]> {
   let labels: RawLabelObject[] | undefined;
 
   if (add.length > 0) {
-    labels = (await githubRequest(
-      config,
-      `/repos/${config.owner}/${config.repo}/issues/${number}/labels`,
-      { method: "POST", body: { labels: add } },
-    )) as RawLabelObject[];
+    labels = (await githubRequest(config, issuesPath(config, number, "labels"), {
+      method: "POST",
+      body: { labels: add },
+    })) as RawLabelObject[];
   }
 
   for (const name of remove) {
-    labels = (await githubRequest(
-      config,
-      `/repos/${config.owner}/${config.repo}/issues/${number}/labels/${encodeURIComponent(name)}`,
-      { method: "DELETE" },
-    )) as RawLabelObject[];
+    labels = (await githubRequest(config, issuesPath(config, number, "labels", encodeURIComponent(name)), {
+      method: "DELETE",
+    })) as RawLabelObject[];
   }
 
   if (labels === undefined) {
-    const raw = (await githubRequest(
-      config,
-      `/repos/${config.owner}/${config.repo}/issues/${number}`,
-    )) as RawIssue;
+    const raw = (await githubRequest(config, issuesPath(config, number))) as RawIssue;
     return normalizeIssue(raw).labels;
   }
 
@@ -234,18 +225,16 @@ export async function editLabels(
  */
 export async function createSubIssue(
   config: GitHubClientConfig,
-  parentNumber: number,
-  title: string,
-  body: string,
+  { parentNumber, title, body }: { parentNumber: number; title: string; body: string },
 ): Promise<GitHubIssue> {
-  await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${parentNumber}`);
+  await githubRequest(config, issuesPath(config, parentNumber));
 
-  const created = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues`, {
+  const created = (await githubRequest(config, issuesPath(config), {
     method: "POST",
     body: { title, body },
   })) as RawIssue;
 
-  await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${parentNumber}/sub_issues`, {
+  await githubRequest(config, issuesPath(config, parentNumber, "sub_issues"), {
     method: "POST",
     body: { sub_issue_id: created.id },
   });
@@ -260,15 +249,13 @@ export async function createSubIssue(
  */
 export async function editIssue(
   config: GitHubClientConfig,
-  number: number,
-  title?: string,
-  body?: string,
+  { number, title, body }: { number: number; title?: string; body?: string },
 ): Promise<GitHubIssue> {
   const patch: Record<string, string> = {};
   if (title !== undefined) patch.title = title;
   if (body !== undefined) patch.body = body;
 
-  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues/${number}`, {
+  const raw = (await githubRequest(config, issuesPath(config, number), {
     method: "PATCH",
     body: patch,
   })) as RawIssue;
@@ -281,11 +268,9 @@ export async function editIssue(
  */
 export async function createIssue(
   config: GitHubClientConfig,
-  title: string,
-  body: string,
-  labels?: string[],
+  { title, body, labels }: { title: string; body: string; labels?: string[] },
 ): Promise<GitHubIssue> {
-  const raw = (await githubRequest(config, `/repos/${config.owner}/${config.repo}/issues`, {
+  const raw = (await githubRequest(config, issuesPath(config), {
     method: "POST",
     body: labels !== undefined ? { title, body, labels } : { title, body },
   })) as RawIssue;

@@ -40,5 +40,5 @@ export const editLabelsTool = defineTool<EditLabelsInput>({
       ],
     };
   },
-  call: (context, input) => editLabels(context.github, input.number, input.add ?? [], input.remove ?? []),
+  call: (context, input) => editLabels(context.github, input),
 });

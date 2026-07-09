@@ -33,5 +33,5 @@ export const createIssueTool = defineTool<CreateIssueInput>({
       ],
     };
   },
-  call: (context, input) => createIssue(context.github, input.title, input.body, input.labels),
+  call: (context, input) => createIssue(context.github, input),
 });

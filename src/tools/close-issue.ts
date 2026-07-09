@@ -22,5 +22,5 @@ export const closeIssueTool = defineTool<CloseIssueInput>({
   description:
     "Post a comment and close the given issue. A comment is required, so an issue can never be closed without an explanation.",
   inputSchema: closeIssueInputSchema,
-  call: (context, input) => closeIssue(context.github, input.number, input.comment),
+  call: (context, input) => closeIssue(context.github, input),
 });

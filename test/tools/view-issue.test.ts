@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { viewIssueHandler } from "../../src/tools/view-issue.js";
+import { viewIssueTool } from "../../src/tools/view-issue.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -40,7 +40,7 @@ describe("viewIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await viewIssueHandler({ github, auditLogPath: auditLog }, { number: 3 });
+    const result = await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3 });
 
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -67,7 +67,7 @@ describe("viewIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await viewIssueHandler({ github, auditLogPath: auditLog }, { number: 3 });
+    await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3 });
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "view_issue", args: { number: 3 }, success: true, githubStatus: 200 });
@@ -77,7 +77,7 @@ describe("viewIssueHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))));
     const auditLog = auditLogPath();
 
-    const result = await viewIssueHandler({ github, auditLogPath: auditLog }, { number: 999 });
+    const result = await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999 });
 
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
@@ -88,7 +88,7 @@ describe("viewIssueHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ message: "Not Found" }, 404))));
     const auditLog = auditLogPath();
 
-    await viewIssueHandler({ github, auditLogPath: auditLog }, { number: 999 });
+    await viewIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999 });
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "view_issue", args: { number: 999 }, success: false, githubStatus: 404 });

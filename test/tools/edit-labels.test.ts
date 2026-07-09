@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { editLabelsHandler } from "../../src/tools/edit-labels.js";
+import { editLabelsTool } from "../../src/tools/edit-labels.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 const labelVocabulary = ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"];
@@ -38,7 +38,7 @@ describe("editLabelsHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await editLabelsHandler(
+    const result = await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, add: ["ready-for-agent"], remove: ["needs-triage"] },
     );
@@ -58,7 +58,7 @@ describe("editLabelsHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await editLabelsHandler(
+    await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, add: ["ready-for-agent"] },
     );
@@ -77,7 +77,7 @@ describe("editLabelsHandler", () => {
     vi.stubGlobal("fetch", fetchMock);
     const auditLog = auditLogPath();
 
-    const result = await editLabelsHandler(
+    const result = await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, add: ["typo-label"] },
     );
@@ -94,7 +94,7 @@ describe("editLabelsHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await editLabelsHandler(
+    const result = await editLabelsTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 999, add: ["ready-for-agent"] },
     );

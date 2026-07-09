@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { editIssueHandler } from "../../src/tools/edit-issue.js";
+import { editIssueTool } from "../../src/tools/edit-issue.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 const labelVocabulary = ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"];
@@ -41,7 +41,7 @@ describe("editIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await editIssueHandler(
+    const result = await editIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, title: "an updated title" },
     );
@@ -60,7 +60,7 @@ describe("editIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await editIssueHandler(
+    await editIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3, title: "an updated title" },
     );
@@ -79,7 +79,7 @@ describe("editIssueHandler", () => {
     vi.stubGlobal("fetch", fetchMock);
     const auditLog = auditLogPath();
 
-    const result = await editIssueHandler(
+    const result = await editIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 3 },
     );
@@ -95,7 +95,7 @@ describe("editIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await editIssueHandler(
+    const result = await editIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { number: 999, title: "title" },
     );

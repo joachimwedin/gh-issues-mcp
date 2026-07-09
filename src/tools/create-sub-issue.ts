@@ -1,9 +1,6 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createSubIssue } from "../github.js";
-import { runWithAuditLog } from "./run-with-audit-log.js";
-import type { McpToolContext } from "./context.js";
+import { defineTool } from "./define-tool.js";
 
 export interface CreateSubIssueInput {
   parent_number: number;
@@ -17,22 +14,9 @@ export const createSubIssueInputSchema = {
   body: z.string(),
 };
 
-export async function createSubIssueHandler(
-  context: McpToolContext,
-  input: CreateSubIssueInput,
-): Promise<CallToolResult> {
-  return runWithAuditLog(context, "create_sub_issue", input, () =>
-    createSubIssue(context.github, input.parent_number, input.title, input.body),
-  );
-}
-
-export function registerCreateSubIssueTool(server: McpServer, context: McpToolContext): void {
-  server.registerTool(
-    "create_sub_issue",
-    {
-      description: "Create a new issue and link it as a sub-issue of the given parent issue.",
-      inputSchema: createSubIssueInputSchema,
-    },
-    async (input) => createSubIssueHandler(context, input),
-  );
-}
+export const createSubIssueTool = defineTool<CreateSubIssueInput>({
+  name: "create_sub_issue",
+  description: "Create a new issue and link it as a sub-issue of the given parent issue.",
+  inputSchema: createSubIssueInputSchema,
+  call: (context, input) => createSubIssue(context.github, input.parent_number, input.title, input.body),
+});

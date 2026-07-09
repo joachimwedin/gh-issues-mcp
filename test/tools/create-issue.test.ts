@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createIssueHandler } from "../../src/tools/create-issue.js";
+import { createIssueTool } from "../../src/tools/create-issue.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 const labelVocabulary = ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "wontfix"];
@@ -41,7 +41,7 @@ describe("createIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await createIssueHandler(
+    const result = await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body" },
     );
@@ -67,7 +67,7 @@ describe("createIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await createIssueHandler(
+    await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body", labels: ["ready-for-agent"] },
     );
@@ -86,7 +86,7 @@ describe("createIssueHandler", () => {
     vi.stubGlobal("fetch", fetchMock);
     const auditLog = auditLogPath();
 
-    const result = await createIssueHandler(
+    const result = await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body", labels: ["typo-label"] },
     );
@@ -103,7 +103,7 @@ describe("createIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await createIssueHandler(
+    const result = await createIssueTool.handler(
       { github, auditLogPath: auditLog, labelVocabulary },
       { title: "a new issue", body: "issue body" },
     );

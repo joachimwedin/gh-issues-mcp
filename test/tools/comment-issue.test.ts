@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { commentIssueHandler } from "../../src/tools/comment-issue.js";
+import { commentIssueTool } from "../../src/tools/comment-issue.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -30,7 +30,7 @@ describe("commentIssueHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ body: "a comment" }))));
     const auditLog = auditLogPath();
 
-    const result = await commentIssueHandler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
+    const result = await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
 
     expect(result.isError).toBeUndefined();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -41,7 +41,7 @@ describe("commentIssueHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ body: "a comment" }))));
     const auditLog = auditLogPath();
 
-    await commentIssueHandler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
+    await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, body: "a comment" });
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
@@ -59,7 +59,7 @@ describe("commentIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await commentIssueHandler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
+    const result = await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
 
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
@@ -73,7 +73,7 @@ describe("commentIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await commentIssueHandler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
+    await commentIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, body: "a comment" });
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "comment_issue", success: false, githubStatus: 404 });

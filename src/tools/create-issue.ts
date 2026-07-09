@@ -1,8 +1,6 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createIssue } from "../github.js";
-import { runWithAuditLog } from "./run-with-audit-log.js";
+import { defineTool } from "./define-tool.js";
 import type { McpToolContext } from "./context.js";
 
 export interface CreateIssueInput {
@@ -17,13 +15,15 @@ export const createIssueInputSchema = {
   labels: z.array(z.string()).optional(),
 };
 
-export async function createIssueHandler(
-  context: McpToolContext,
-  input: CreateIssueInput,
-): Promise<CallToolResult> {
-  const invalid = (input.labels ?? []).filter((label) => !context.labelVocabulary.includes(label));
+export const createIssueTool = defineTool<CreateIssueInput>({
+  name: "create_issue",
+  description: "Create a new top-level issue in the configured repo.",
+  inputSchema: createIssueInputSchema,
+  validate(input, context: McpToolContext) {
+    const invalid = (input.labels ?? []).filter((label) => !context.labelVocabulary.includes(label));
 
-  if (invalid.length > 0) {
+    if (invalid.length === 0) return undefined;
+
     return {
       isError: true,
       content: [
@@ -33,20 +33,6 @@ export async function createIssueHandler(
         },
       ],
     };
-  }
-
-  return runWithAuditLog(context, "create_issue", input, () =>
-    createIssue(context.github, input.title, input.body, input.labels),
-  );
-}
-
-export function registerCreateIssueTool(server: McpServer, context: McpToolContext): void {
-  server.registerTool(
-    "create_issue",
-    {
-      description: "Create a new top-level issue in the configured repo.",
-      inputSchema: createIssueInputSchema,
-    },
-    async (input) => createIssueHandler(context, input),
-  );
-}
+  },
+  call: (context, input) => createIssue(context.github, input.title, input.body, input.labels),
+});

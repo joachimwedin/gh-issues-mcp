@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { closeIssueHandler, closeIssueInputSchema } from "../../src/tools/close-issue.js";
+import { closeIssueTool, closeIssueInputSchema } from "../../src/tools/close-issue.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -42,7 +42,7 @@ describe("closeIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await closeIssueHandler(
+    const result = await closeIssueTool.handler(
       { github, auditLogPath: auditLog },
       { number: 3, comment: "closing this out" },
     );
@@ -65,7 +65,7 @@ describe("closeIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await closeIssueHandler({ github, auditLogPath: auditLog }, { number: 3, comment: "closing" });
+    await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 3, comment: "closing" });
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
@@ -83,7 +83,7 @@ describe("closeIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await closeIssueHandler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
+    const result = await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
 
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("404");
@@ -97,7 +97,7 @@ describe("closeIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await closeIssueHandler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
+    await closeIssueTool.handler({ github, auditLogPath: auditLog }, { number: 999, comment: "closing" });
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "close_issue", success: false, githubStatus: 404 });

@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listIssuesHandler } from "../../src/tools/list-issues.js";
+import { listIssuesTool } from "../../src/tools/list-issues.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -37,7 +37,7 @@ describe("listIssuesHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await listIssuesHandler({ github, auditLogPath: auditLog }, {});
+    const result = await listIssuesTool.handler({ github, auditLogPath: auditLog }, {});
 
     expect(result.isError).toBeUndefined();
     expect(result.content).toHaveLength(1);
@@ -51,7 +51,7 @@ describe("listIssuesHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([])));
     const auditLog = auditLogPath();
 
-    await listIssuesHandler({ github, auditLogPath: auditLog }, { state: "open", labels: ["bug"] });
+    await listIssuesTool.handler({ github, auditLogPath: auditLog }, { state: "open", labels: ["bug"] });
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({
@@ -66,7 +66,7 @@ describe("listIssuesHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ message: "Bad credentials" }, 401)));
     const auditLog = auditLogPath();
 
-    const result = await listIssuesHandler({ github, auditLogPath: auditLog }, {});
+    const result = await listIssuesTool.handler({ github, auditLogPath: auditLog }, {});
 
     expect(result.isError).toBe(true);
     expect((result.content[0] as { text: string }).text).toContain("401");
@@ -77,7 +77,7 @@ describe("listIssuesHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ message: "Bad credentials" }, 401)));
     const auditLog = auditLogPath();
 
-    await listIssuesHandler({ github, auditLogPath: auditLog }, {});
+    await listIssuesTool.handler({ github, auditLogPath: auditLog }, {});
 
     const entry = JSON.parse(readFileSync(auditLog, "utf8").trim());
     expect(entry).toMatchObject({ tool: "list_issues", success: false, githubStatus: 401 });

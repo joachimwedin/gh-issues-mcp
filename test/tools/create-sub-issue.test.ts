@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createSubIssueHandler } from "../../src/tools/create-sub-issue.js";
+import { createSubIssueTool } from "../../src/tools/create-sub-issue.js";
 
 const github = { owner: "joachimwedin", repo: "gh-issues-mcp", token: "test-token" };
 
@@ -46,7 +46,7 @@ describe("createSubIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    const result = await createSubIssueHandler(
+    const result = await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
@@ -76,7 +76,7 @@ describe("createSubIssueHandler", () => {
     );
     const auditLog = auditLogPath();
 
-    await createSubIssueHandler(
+    await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );
@@ -95,7 +95,7 @@ describe("createSubIssueHandler", () => {
     vi.stubGlobal("fetch", fetchMock);
     const auditLog = auditLogPath();
 
-    const result = await createSubIssueHandler(
+    const result = await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 999, title: "a sub-issue", body: "sub body" },
     );
@@ -110,7 +110,7 @@ describe("createSubIssueHandler", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ message: "Validation Failed" }, 422)));
     const auditLog = auditLogPath();
 
-    await createSubIssueHandler(
+    await createSubIssueTool.handler(
       { github, auditLogPath: auditLog },
       { parent_number: 3, title: "a sub-issue", body: "sub body" },
     );

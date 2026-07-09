@@ -1,6 +1,6 @@
 ## gh-issues-mcp
 
-A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub Issues tools, scoped to a single repository. It runs as its own long-running process, outside the process tree of any agent session, and holds a GitHub personal access token internally so agents never see or hold the credential themselves.
+A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub Issues tools, scoped to a configured allowlist of repositories. It runs as its own long-running process, outside the process tree of any agent session, and holds a GitHub personal access token internally so agents never see or hold the credential themselves.
 
 ### Requirements
 - Node.js
@@ -9,7 +9,7 @@ A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub
 
 ### Quickstart
 
-1. **Create a token.** [Create a fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) scoped to the target repo with **Issues: Read and write** and **Metadata: Read-only** — nothing else. See [Token scope](#token-scope) for why.
+1. **Create a token.** [Create a fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) scoped to the target repo(s) — every repo you'll list in `repos` below — with **Issues: Read and write** and **Metadata: Read-only** — nothing else. See [Token scope](#token-scope) for why.
 
 2. **Store it in the Keychain** — the server only ever reads the token from here, never from an env var or a file:
 
@@ -23,17 +23,17 @@ A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub
 
    `-w` with no value prompts for the token instead of taking it as an argument, so it never lands in your shell history. The first time a process reads it back, macOS prompts you to click **Allow**. See [Keychain storage](#keychain-storage) for what `-T ""` does and how to replace a token later.
 
-3. **Point it at your repo.** Create `~/.config/gh-issues-mcp/config.json`. This is the config this repo's own server runs with — swap `owner`/`repo` for your target:
+3. **Point it at your repo(s).** Create `~/.config/gh-issues-mcp/config.json`. `repos` is an allowlist — every repo a tool call may target — and `defaultRepo` is which one a call uses when it omits the `repo` parameter. Swap both for your target(s):
 
    ```json
    {
-     "owner": "joachimwedin",
-     "repo": "gh-issues-mcp",
+     "repos": [{ "repo": "joachimwedin/gh-issues-mcp" }],
+     "defaultRepo": "joachimwedin/gh-issues-mcp",
      "port": 4319
    }
    ```
 
-   See [Configuration](#configuration) for the full schema, including the label vocabulary.
+   `defaultRepo` may be omitted when `repos` has exactly one entry. See [Configuration](#configuration) for the full schema, including per-repo label vocabulary overrides.
 
 4. **Install and start the server**, then confirm it picked up the token:
 
@@ -94,7 +94,7 @@ A Model Context Protocol (MCP) server that exposes a fixed, narrow set of GitHub
 
 ### Key Features
 
-- **Narrow surface**. Eight tools, all issue-scoped — nothing in the tool set can touch code, pull requests, or repo administration.
+- **Narrow surface**. Nine tools, all issue-scoped and restricted to a configured repo allowlist — nothing in the tool set can touch code, pull requests, or repo administration.
 - **Token isolation**. The GitHub token lives only in the macOS Keychain and this process; agents talk to a local HTTP endpoint, never to GitHub directly.
 - **Local-only**. Binds to `127.0.0.1` only — never reachable from outside the machine it runs on.
 - **Audited**. Every tool call is appended to a local JSON-lines audit log, independent of GitHub's own issue-timeline history.
@@ -114,24 +114,33 @@ The server has no command-line flags — it reads runtime settings from environm
 
 ```typescript
 {
-  /** GitHub owner (user or org) that owns the target repo. */
-  owner: string;
+  /** Allowlist of repos tool calls may target. Non-empty. */
+  repos: {
+    /** "owner/name". */
+    repo: string;
 
-  /** Repo name within `owner`. */
-  repo: string;
+    /**
+     * Allowed label values for edit_labels and create_issue on this repo.
+     * Labels outside this list are rejected locally, before any GitHub API
+     * call is made. Defaults to needs-triage, needs-info, ready-for-agent,
+     * ready-for-human, wontfix.
+     */
+    labelVocabulary?: string[];
+  }[];
+
+  /**
+   * The repo a tool call targets when it omits the `repo` parameter. Must
+   * be one of the "owner/name" values in `repos`. Optional only when
+   * `repos` has exactly one entry, in which case that entry is the default.
+   */
+  defaultRepo?: string;
 
   /** Port the server listens on. Bound to 127.0.0.1 only, never external. */
   port: number;
-
-  /**
-   * Allowed label values for edit_labels and create_issue. Labels outside
-   * this list are rejected locally, before any GitHub API call is made.
-   * Defaults to needs-triage, needs-info, ready-for-agent, ready-for-human,
-   * wontfix.
-   */
-  labelVocabulary?: string[];
 }
 ```
+
+The old flat `owner`/`repo` shape is no longer supported; the server refuses to start and reports the error if it's detected.
 </details>
 
 ## Security
@@ -148,7 +157,7 @@ Create a **fine-grained personal access token** scoped to exactly:
 
 Grant nothing else — no `Contents`, no `Pull requests`, no `Administration`, no `Actions`. GitHub itself rejects any call outside this scope, regardless of what the server attempts.
 
-Scope the token to the single repository this server instance is configured for. If you need to operate on more than one repo, run a separate server instance (different port, different config, different token) per repo.
+One token is shared across every repo in the server's `repos` allowlist, so scope it to cover all of them (a fine-grained PAT can select multiple repos). A tool call naming a repo outside the allowlist is rejected locally, before any GitHub API call is made, regardless of what the token itself could reach — so the allowlist, not just the token, is what bounds a given server instance.
 </details>
 
 <details open id="keychain-storage">
@@ -193,9 +202,12 @@ Every tool call appends one JSON-lines entry (timestamp, tool name, arguments, s
 
 ### Tools
 
+Every tool below (except `list_repos`) takes an optional `repo` parameter, `"owner/name"`, which must be one of the configured `repos` allowlist entries — a call naming a repo outside it is rejected locally, before any GitHub API call is made. When omitted, the call falls back to `defaultRepo`. Every issue-shaped result (all tools except `edit_labels` and `list_repos`) is tagged with the `repo` it targeted.
+
 - **list_issues**
-  - Description: List issues in the configured repository, optionally filtered by state and labels. Pull requests are excluded, since this server treats issues, not PRs, as the triage surface.
+  - Description: List issues in a repository, optionally filtered by state and labels. Pull requests are excluded, since this server treats issues, not PRs, as the triage surface.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `state` (string, optional): One of `open`, `closed`, `all`.
     - `labels` (array, optional): Labels to filter by.
   - Read-only: **true**
@@ -203,12 +215,14 @@ Every tool call appends one JSON-lines entry (timestamp, tool name, arguments, s
 - **view_issue**
   - Description: View a single issue's body, labels, and full comment history.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `number` (integer): Issue number.
   - Read-only: **true**
 
 - **comment_issue**
   - Description: Post a comment to the given issue.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `number` (integer): Issue number.
     - `body` (string): Comment body.
   - Read-only: **false**
@@ -216,39 +230,49 @@ Every tool call appends one JSON-lines entry (timestamp, tool name, arguments, s
 - **close_issue**
   - Description: Post a comment and close the given issue. `comment` is required, so an issue can never be closed without an explanation.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `number` (integer): Issue number.
     - `comment` (string): Closing comment. Required — the call is rejected locally if omitted.
   - Read-only: **false**
 
 - **edit_labels**
-  - Description: Add and/or remove labels on the given issue, restricted to the configured label vocabulary. Labels outside the vocabulary are rejected locally, before any GitHub API call is made.
+  - Description: Add and/or remove labels on the given issue, restricted to the resolved repo's configured label vocabulary. Labels outside the vocabulary are rejected locally, before any GitHub API call is made. Unlike the other write tools, the result is `{ repo, labels }` — the resolved repo plus the issue's resulting label list — rather than a tagged issue object.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `number` (integer): Issue number.
     - `add` (array, optional): Labels to add.
     - `remove` (array, optional): Labels to remove.
   - Read-only: **false**
 
 - **create_sub_issue**
-  - Description: Create a new issue and link it as a sub-issue of the given parent issue, via GitHub's sub-issues API.
+  - Description: Create a new issue and link it as a sub-issue of the given parent issue, via GitHub's sub-issues API. Both the parent and the new sub-issue are in the same repo.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `parent_number` (integer): Parent issue number.
     - `title` (string): Title of the new sub-issue.
     - `body` (string): Body of the new sub-issue.
   - Read-only: **false**
 
 - **create_issue**
-  - Description: Create a new top-level issue in the configured repo. Labels outside the configured vocabulary are rejected locally, before any GitHub API call is made.
+  - Description: Create a new top-level issue in a repository. Labels outside the resolved repo's configured vocabulary are rejected locally, before any GitHub API call is made.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `title` (string): Issue title.
     - `body` (string): Issue body.
-    - `labels` (array, optional): Labels to apply, restricted to the configured vocabulary.
+    - `labels` (array, optional): Labels to apply, restricted to the resolved repo's configured vocabulary.
   - Read-only: **false**
 
 - **edit_issue**
   - Description: Update an issue's title and/or body. At least one of `title`/`body` must be given — a call with neither is rejected locally, before any GitHub API call is made.
   - Parameters:
+    - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `number` (integer): Issue number.
     - `title` (string, optional): New title.
     - `body` (string, optional): New body.
   - Read-only: **false**
+
+- **list_repos**
+  - Description: List the configured repo allowlist and each repo's effective label vocabulary (its own override, or the server-wide default). Takes no parameters — it doesn't target a single repo, so it has no `repo` input and its results aren't tagged with one.
+  - Parameters: none.
+  - Read-only: **true**
 </content>

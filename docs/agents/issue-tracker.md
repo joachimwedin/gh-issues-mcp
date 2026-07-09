@@ -10,28 +10,44 @@ this repo) rather than improvising another way to do it.
 
 ## Conventions
 
-- **Create an issue**: `create_issue(title, body, labels?)` — creates a new
-  top-level issue. If `labels` is given, only labels in the server's
-  configured vocabulary are accepted — see `docs/agents/triage-labels.md`.
-- **Read an issue**: `view_issue(number)` — returns body, labels, and full
-  comment history in one call.
-- **List issues**: `list_issues(state?, labels?)` — PRs are excluded
+Every tool below (except `list_repos`) takes an optional `repo` param,
+`"owner/name"`, checked against the server's configured repo allowlist. Omit
+it to target the server's default repo. `list_repos()` returns the full
+allowlist plus each repo's effective label vocabulary — call it first when
+you don't already know the target repo or its vocabulary.
+
+- **Discover repos**: `list_repos()` — no params; returns
+  `[{ repo, labelVocabulary }]` for every repo in the allowlist.
+- **Create an issue**: `create_issue(title, body, labels?, repo?)` — creates
+  a new top-level issue. If `labels` is given, only labels in the resolved
+  repo's configured vocabulary are accepted — see
+  `docs/agents/triage-labels.md`.
+- **Read an issue**: `view_issue(number, repo?)` — returns body, labels, and
+  full comment history in one call.
+- **List issues**: `list_issues(state?, labels?, repo?)` — PRs are excluded
   automatically, since this server treats issues, not PRs, as the triage
   surface.
-- **Comment on an issue**: `comment_issue(number, body)`.
-- **Apply / remove labels**: `edit_labels(number, add?, remove?)`. Only
-  labels in the server's configured vocabulary are accepted — see
-  `docs/agents/triage-labels.md`. If a label you need isn't in the
+- **Comment on an issue**: `comment_issue(number, body, repo?)`.
+- **Apply / remove labels**: `edit_labels(number, add?, remove?, repo?)`.
+  Only labels in the resolved repo's configured vocabulary are accepted —
+  see `docs/agents/triage-labels.md`. If a label you need isn't in the
   vocabulary, flag it as a gap (config or tool) rather than trying to force
-  it another way.
-- **Close**: `close_issue(number, comment)` — `comment` is required, so an
-  issue can never be closed without an explanation.
-- **Create a sub-issue**: `create_sub_issue(parent_number, title, body)` —
-  creates a new issue and links it to the parent via GitHub's sub-issues API
-  in one call.
-- **Edit an issue**: `edit_issue(number, title?, body?)` — updates an
+  it another way. Unlike the other tools, its result is `{ repo, labels }`
+  (the resolved repo and the issue's resulting label list), not a tagged
+  issue object.
+- **Close**: `close_issue(number, comment, repo?)` — `comment` is required,
+  so an issue can never be closed without an explanation.
+- **Create a sub-issue**: `create_sub_issue(parent_number, title, body, repo?)`
+  — creates a new issue and links it to the parent via GitHub's sub-issues
+  API in one call. Parent and child are always in the same repo.
+- **Edit an issue**: `edit_issue(number, title?, body?, repo?)` — updates an
   existing issue's title and/or body. At least one of `title`/`body` must be
   given.
+
+When a task spans more than one repo (or you're not sure which repo is the
+default), pass `repo` explicitly on each call rather than relying on the
+fallback — the fallback exists for the common single-repo case, not as a way
+to avoid specifying which repo a multi-repo task is operating on.
 
 ## Pull requests as a triage surface
 

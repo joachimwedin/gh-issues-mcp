@@ -25,6 +25,7 @@ export interface GitHubIssueDetail extends GitHubIssue {
 export interface ListIssuesFilters {
   state?: string;
   labels?: string[];
+  includeComments?: boolean;
 }
 
 /**
@@ -111,23 +112,37 @@ function normalizeIssue(raw: RawIssue): GitHubIssue {
   };
 }
 
+async function fetchComments(config: GitHubClientConfig, number: number): Promise<GitHubComment[]> {
+  const raw = (await githubRequest(config, issuesPath(config, number, "comments"))) as GitHubComment[];
+  return raw.map((comment) => ({ body: comment.body }));
+}
+
 /**
  * Lists issues in the configured repo. GitHub's issues endpoint also
  * returns pull requests (distinguished by a `pull_request` field); those
  * are filtered out since this project treats issues, not PRs, as the
  * triage surface.
+ *
+ * When `includeComments` is set, comments are fetched (in parallel) only
+ * for the issues remaining after PR/state/labels filtering, so the flag's
+ * extra GitHub calls scale with the filtered result set, not the raw page.
  */
 export async function listIssues(
   config: GitHubClientConfig,
   filters: ListIssuesFilters,
-): Promise<GitHubIssue[]> {
+): Promise<(GitHubIssue | GitHubIssueDetail)[]> {
   const params = new URLSearchParams();
   params.set("state", filters.state ?? "open");
   if (filters.labels?.length) params.set("labels", filters.labels.join(","));
 
   const raw = (await githubRequest(config, `${issuesPath(config)}?${params.toString()}`)) as RawIssue[];
+  const issues = raw.filter((issue) => !("pull_request" in issue)).map(normalizeIssue);
 
-  return raw.filter((issue) => !("pull_request" in issue)).map(normalizeIssue);
+  if (!filters.includeComments) return issues;
+
+  return Promise.all(
+    issues.map(async (issue) => ({ ...issue, comments: await fetchComments(config, issue.number) })),
+  );
 }
 
 export async function viewIssue(
@@ -136,12 +151,12 @@ export async function viewIssue(
 ): Promise<GitHubIssueDetail> {
   const [issue, comments] = await Promise.all([
     githubRequest(config, issuesPath(config, number)) as Promise<RawIssue>,
-    githubRequest(config, issuesPath(config, number, "comments")) as Promise<GitHubComment[]>,
+    fetchComments(config, number),
   ]);
 
   return {
     ...normalizeIssue(issue),
-    comments: comments.map((comment) => ({ body: comment.body })),
+    comments,
   };
 }
 

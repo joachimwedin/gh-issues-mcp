@@ -134,4 +134,130 @@ describe("listIssuesHandler", () => {
     const entry = JSON.parse(readFileSync(ctx.auditLogPath, "utf8").trim());
     expect(entry).toMatchObject({ tool: "list_issues", success: false, githubStatus: 401 });
   });
+
+  it("Given includeComments is omitted, When list_issues is called, Then the response has no comments key and no comment-fetch calls are made", async () => {
+    // Given
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse([{ number: 3, title: "an issue", state: "open", body: "body", labels: [] }]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    const result = await listIssuesTool.handler(context(), {});
+
+    // Then
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload[0]).not.toHaveProperty("comments");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Given includeComments is true, When list_issues is called, Then each issue carries its comment history fetched via one call per issue", async () => {
+    // Given
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/comments")) {
+        if (url.includes("/issues/3/")) return Promise.resolve(jsonResponse([{ body: "comment on 3" }]));
+        return Promise.resolve(jsonResponse([]));
+      }
+      return Promise.resolve(
+        jsonResponse([
+          { number: 3, title: "first", state: "open", body: "b1", labels: [] },
+          { number: 4, title: "second", state: "open", body: "b2", labels: [] },
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    const result = await listIssuesTool.handler(context(), { includeComments: true });
+
+    // Then
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload).toEqual([
+      { number: 3, title: "first", state: "open", body: "b1", labels: [], comments: [{ body: "comment on 3" }], repo: defaultRepo },
+      { number: 4, title: "second", state: "open", body: "b2", labels: [], comments: [], repo: defaultRepo },
+    ]);
+  });
+
+  it("Given includeComments is true combined with labels filters, When list_issues is called, Then comments are only fetched for the filtered result set", async () => {
+    // Given
+    const commentFetches: string[] = [];
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/comments")) {
+        commentFetches.push(url);
+        return Promise.resolve(jsonResponse([]));
+      }
+      expect(url).toContain("labels=ready-for-agent");
+      return Promise.resolve(
+        jsonResponse([{ number: 3, title: "filtered in", state: "open", body: null, labels: [{ name: "ready-for-agent" }] }]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    await listIssuesTool.handler(context(), { includeComments: true, labels: ["ready-for-agent"] });
+
+    // Then
+    expect(commentFetches).toEqual([expect.stringContaining("/issues/3/comments")]);
+  });
+
+  it("Given includeComments is true and an issue has zero comments, When list_issues is called, Then that issue's comments is an empty array", async () => {
+    // Given
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) =>
+        Promise.resolve(
+          url.endsWith("/comments")
+            ? jsonResponse([])
+            : jsonResponse([{ number: 3, title: "an issue", state: "open", body: null, labels: [] }]),
+        ),
+      ),
+    );
+
+    // When
+    const result = await listIssuesTool.handler(context(), { includeComments: true });
+
+    // Then
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload[0].comments).toEqual([]);
+  });
+
+  it("Given includeComments is true and a per-issue comment fetch fails, When list_issues is called, Then it returns the real GitHub status and message as an error result", async () => {
+    // Given
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) =>
+        Promise.resolve(
+          url.endsWith("/comments")
+            ? jsonResponse({ message: "Server Error" }, 500)
+            : jsonResponse([{ number: 3, title: "an issue", state: "open", body: null, labels: [] }]),
+        ),
+      ),
+    );
+
+    // When
+    const result = await listIssuesTool.handler(context(), { includeComments: true });
+
+    // Then
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as { text: string }).text).toContain("500");
+    expect((result.content[0] as { text: string }).text).toContain("Server Error");
+  });
+
+  it("Given includeComments is true, When list_issues is called, Then the audit log records includeComments in args", async () => {
+    // Given
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) =>
+        Promise.resolve(url.endsWith("/comments") ? jsonResponse([]) : jsonResponse([])),
+      ),
+    );
+    const ctx = context();
+
+    // When
+    await listIssuesTool.handler(ctx, { includeComments: true });
+
+    // Then
+    const entry = JSON.parse(readFileSync(ctx.auditLogPath, "utf8").trim());
+    expect(entry).toMatchObject({ tool: "list_issues", args: { includeComments: true }, success: true });
+  });
 });

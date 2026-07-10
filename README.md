@@ -214,6 +214,7 @@ Every tool below (except `list_repos`) takes an optional `repo` parameter, `"own
     - `repo` (string, optional): `"owner/name"`. Defaults to `defaultRepo`.
     - `state` (string, optional): One of `open`, `closed`, `all`.
     - `labels` (array, optional): Labels to filter by.
+    - `includeComments` (boolean, optional): When `true`, each returned issue also carries its full comment history (same shape `view_issue` returns), fetched only for the filtered result set. Defaults to `false` — no shape change, no extra GitHub calls.
   - Read-only: **true**
 
 - **view_issue**
